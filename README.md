@@ -2,6 +2,14 @@
 
 Application Shiny locale destinée à accompagner le recueil de données d'un projet de recherche. Le projet est volontairement petit et évolutif : les fonctions sont isolées, testées et pourront être enrichies progressivement.
 
+## Premier état du projet
+
+Cette première version établit le socle technique de l'application. Elle permet de démarrer localement un serveur Shiny depuis une boîte de dialogue, d'ouvrir l'application dans le navigateur par défaut et d'arrêter le serveur proprement.
+
+Le parcours Shiny actuel est volontairement minimal : une page d'accueil et un bouton simulant le démarrage d'un recueil. Aucun champ métier ni donnée de recherche réelle n'est encore enregistré.
+
+Cette étape prépare les évolutions suivantes : définir le formulaire de recueil, ajouter les règles de validation, choisir le stockage des données, puis préparer l'utilisation par plusieurs personnes.
+
 ## Architecture
 
 ```text
