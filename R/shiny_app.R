@@ -18,9 +18,17 @@ build_app_ui <- function() {
   )
 }
 
-# Construit la logique réactive de l'application.
-build_app_server <- function() {
+# Construit la logique réactive de l'application. La connexion est créée
+# par session pour isoler les utilisateurs lorsque l'application sera distante.
+build_app_server <- function(database_config = NULL) {
   function(input, output, session) {
+    connection <- NULL
+    if (!is.null(database_config)) {
+      connection <- connect_database(database_config)
+      initialize_database(connection)
+      session$onSessionEnded(function() disconnect_database(connection))
+    }
+
     collection_started <- shiny::reactiveVal(FALSE)
 
     # Pour l'instant, le bouton simule simplement le début d'un recueil.
@@ -40,6 +48,6 @@ build_app_server <- function() {
 }
 
 # Assemble l'interface et le serveur dans l'objet attendu par Shiny.
-build_shiny_app <- function() {
-  shiny::shinyApp(build_app_ui(), build_app_server())
+build_shiny_app <- function(database_config = NULL) {
+  shiny::shinyApp(build_app_ui(), build_app_server(database_config))
 }

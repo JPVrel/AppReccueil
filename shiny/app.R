@@ -1,35 +1,10 @@
-library(shiny)
+# This file is evaluated by shiny::runApp() in the local server process.
+project_dir <- Sys.getenv("RECUEIL_PROJECT_DIR", unset = dirname(normalizePath(getwd())))
+source(file.path(project_dir, "R", "load_modules.R"))
+load_modules(project_dir)
 
-ui <- fluidPage(
-  titlePanel("Application de recueil de données"),
-  sidebarLayout(
-    sidebarPanel(
-      h4("Parcours"),
-      p("Cette application servira à structurer et enregistrer les données de recherche."),
-      actionButton("start_collection", "Commencer un recueil", class = "btn-primary")
-    ),
-    mainPanel(
-      h3("Bienvenue"),
-      p("La première version prépare l'interface. Les champs de recueil seront ajoutés progressivement."),
-      textOutput("status")
-    )
-  )
+database_config <- read_database_config(
+  file.path(project_dir, "config", "database.yml")
 )
 
-server <- function(input, output, session) {
-  collection_started <- reactiveVal(FALSE)
-
-  observeEvent(input$start_collection, {
-    collection_started(TRUE)
-  })
-
-  output$status <- renderText({
-    if (collection_started()) {
-      "Le parcours de recueil est prêt à être défini."
-    } else {
-      "Aucun recueil n'est commencé."
-    }
-  })
-}
-
-shinyApp(ui, server)
+build_shiny_app(database_config)

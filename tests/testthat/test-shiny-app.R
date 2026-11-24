@@ -9,3 +9,14 @@ testthat::test_that("the collection status changes after starting", {
     testthat::expect_equal(output$status, "Le parcours de recueil est prêt à être défini.")
   })
 })
+
+testthat::test_that("a configured Shiny session initializes the database", {
+  database_config <- list(
+    mode = "local",
+    local = list(path = file.path(tempdir(), "shiny-session.sqlite"))
+  )
+
+  shiny::testServer(build_app_server(database_config), {
+    testthat::expect_true(file.exists(database_config$local$path))
+  })
+})

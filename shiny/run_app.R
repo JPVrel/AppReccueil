@@ -4,6 +4,8 @@ args <- commandArgs(trailingOnly = TRUE)
 port <- as.integer(args[[1]])
 file_arg <- grep("^--file=", commandArgs(), value = TRUE)
 app_dir <- dirname(normalizePath(sub("^--file=", "", file_arg[[1]])))
+project_dir <- dirname(app_dir)
+Sys.setenv(RECUEIL_PROJECT_DIR = project_dir)
 
 shiny::runApp(
   appDir = app_dir,

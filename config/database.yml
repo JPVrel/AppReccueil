@@ -1,0 +1,19 @@
+# Configuration de la base de données.
+# Le mode local utilise SQLite et ne demande aucun serveur externe.
+database:
+  mode: local
+  local:
+    path: data/recueil.sqlite
+
+  # Exemple de configuration distante, à activer plus tard :
+  # mode: remote
+  # remote:
+  #   driver_package: RPostgres
+  #   driver_class: Postgres
+  #   connection:
+  #     dbname: recueil
+  #     host: localhost
+  #     port: 5432
+  #   credentials:
+  #     user_env: RECUEIL_DB_USER
+  #     password_env: RECUEIL_DB_PASSWORD

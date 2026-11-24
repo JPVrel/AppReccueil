@@ -18,6 +18,9 @@ Cette étape prépare les évolutions suivantes : définir le formulaire de recu
 ├── launcher.R                    # Boîte de dialogue de lancement local
 ├── R/
 │   ├── config.R                  # Configuration des chemins et du serveur
+│   ├── database_config.R         # Lecture et validation de la configuration DB
+│   ├── database_connection.R     # Connexions SQLite ou driver distant DBI
+│   ├── database_schema.R          # Création des tables initiales
 │   ├── dependencies.R            # Détection et installation des packages
 │   ├── launcher_ui.R             # Fenêtre Tcl/Tk
 │   ├── load_modules.R            # Chargement des modules R
@@ -25,6 +28,10 @@ Cette étape prépare les évolutions suivantes : définir le formulaire de recu
 │   └── shiny_app.R               # Interface et logique Shiny
 ├── scripts/
 │   └── install_dependencies.R    # Installation des dépendances
+├── config/
+│   └── database.yml               # Paramètres locaux ou distants à modifier
+├── data/
+│   └── .gitkeep                   # Dossier de la base SQLite locale
 ├── shiny/
 │   ├── app.R                     # Application exécutée par le serveur local
 │   └── run_app.R                 # Runner du processus R indépendant
@@ -39,7 +46,15 @@ Depuis la racine du projet, dans R :
 source("scripts/install_dependencies.R")
 ```
 
-Le script installe les packages nécessaires à l'application (`shiny`) et au développement (`testthat`). Le lanceur propose également l'installation de `shiny` si celui-ci est absent.
+Le script installe les packages nécessaires à l'application (`shiny`, `DBI`, `RSQLite`, `yaml`) et au développement (`testthat`). Le lanceur propose également l'installation des dépendances d'exécution si elles sont absentes.
+
+## Base de données
+
+Les paramètres se trouvent dans [config/database.yml](config/database.yml). Par défaut, l'application utilise SQLite et crée automatiquement `data/recueil.sqlite` au premier démarrage d'une session Shiny.
+
+Le schéma initial contient deux tables techniques : `app_metadata` et `collection_records`. La table des recueils utilise pour l'instant un identifiant, une date de création et un payload texte ; elle sera spécialisée lorsque les premiers champs métier seront définis.
+
+Pour passer à une base distante, le fichier de configuration pourra définir `mode: remote`, le package DBI du driver (`RPostgres`, par exemple), sa classe et les paramètres de connexion. Les identifiants doivent être fournis par des variables d'environnement indiquées par `user_env` et `password_env`, jamais écrits dans le fichier YAML.
 
 ## Lancer l'application
 
@@ -65,4 +80,4 @@ Les tests suivent une boucle de développement inspirée de l'Extreme Programmin
 
 ## État actuel
 
-La première version fournit un parcours d'accueil et un bouton de démarrage. Les champs de recueil, la validation métier et le stockage seront ajoutés progressivement.
+La première version fournit un parcours d'accueil, une base SQLite locale et un bouton de démarrage. Les champs de recueil, la validation métier et l'écriture des observations seront ajoutés progressivement.

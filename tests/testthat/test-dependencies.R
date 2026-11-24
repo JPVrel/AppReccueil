@@ -1,5 +1,5 @@
 testthat::test_that("runtime packages contain Shiny", {
-  testthat::expect_equal(runtime_packages(), "shiny")
+  testthat::expect_equal(runtime_packages(), c("shiny", "DBI", "RSQLite", "yaml"))
 })
 
 testthat::test_that("missing_packages identifies unavailable packages", {
