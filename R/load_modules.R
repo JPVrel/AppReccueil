@@ -1,3 +1,5 @@
+# Charge tous les modules R dans l'environnement de l'appelant.
+# Les fichiers sont triés pour obtenir un chargement déterministe.
 load_modules <- function(project_dir) {
   module_files <- list.files(
     file.path(project_dir, "R"),

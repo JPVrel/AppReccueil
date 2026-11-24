@@ -1,3 +1,5 @@
+# Construit uniquement l'interface visuelle. Cette séparation rend possible
+# une évolution du formulaire sans modifier le lanceur local.
 build_app_ui <- function() {
   shiny::fluidPage(
     shiny::titlePanel("Application de recueil de données"),
@@ -16,10 +18,13 @@ build_app_ui <- function() {
   )
 }
 
+# Construit la logique réactive de l'application.
 build_app_server <- function() {
   function(input, output, session) {
     collection_started <- shiny::reactiveVal(FALSE)
 
+    # Pour l'instant, le bouton simule simplement le début d'un recueil.
+    # Les champs métier remplaceront cette étape dans une prochaine version.
     shiny::observeEvent(input$start_collection, {
       collection_started(TRUE)
     })
@@ -34,6 +39,7 @@ build_app_server <- function() {
   }
 }
 
+# Assemble l'interface et le serveur dans l'objet attendu par Shiny.
 build_shiny_app <- function() {
   shiny::shinyApp(build_app_ui(), build_app_server())
 }

@@ -1,3 +1,5 @@
+# macOS fournit lsof, qui permet de retrouver le PID du serveur qui écoute
+# sur le port choisi. L'absence de résultat signifie simplement « pas encore prêt ».
 find_listening_pids <- function(port, system_runner = system2) {
   pids <- suppressWarnings(system_runner(
     "lsof",
@@ -9,6 +11,8 @@ find_listening_pids <- function(port, system_runner = system2) {
   as.integer(pids[nzchar(pids)])
 }
 
+# Attend que le serveur commence à écouter, avec une limite pour éviter
+# que la boîte de dialogue reste bloquée indéfiniment.
 wait_for_server <- function(
   port,
   timeout = 10,
@@ -32,6 +36,8 @@ wait_for_server <- function(
   }
 }
 
+# Démarre un nouveau processus R indépendant. Cette approche évite le fork
+# de la session Positron, qui n'est pas autorisé dans cet environnement.
 start_server_process <- function(
   config,
   system_runner = system2,
@@ -53,6 +59,7 @@ start_server_process <- function(
   tail(find_pids(config$port), 1)
 }
 
+# Arrête uniquement le processus dont le PID a été mémorisé par le lanceur.
 stop_server_process <- function(pid, kill_fn = tools::pskill) {
   if (!is.null(pid)) {
     kill_fn(pid)

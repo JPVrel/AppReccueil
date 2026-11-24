@@ -1,3 +1,4 @@
+# Transforme l'état technique du serveur en texte compréhensible dans la fenêtre.
 launcher_status_text <- function(server_pid, app_url) {
   if (is.null(server_pid)) {
     return("Le serveur Shiny est arrêté.")
@@ -6,6 +7,8 @@ launcher_status_text <- function(server_pid, app_url) {
   paste("Serveur lancé :", app_url)
 }
 
+# Construit la boîte de dialogue locale. Les fonctions de démarrage, d'arrêt,
+# de navigation et de détection du port sont injectées pour isoler l'interface.
 create_launcher_window <- function(
   config,
   start_fn,
@@ -16,6 +19,8 @@ create_launcher_window <- function(
   state <- new.env(parent = emptyenv())
   state$pid <- NULL
 
+  # Le PID est conservé dans un environnement partagé par les callbacks
+  # des boutons et par le nettoyage effectué à la fermeture de la fenêtre.
   window <- tcltk::tktoplevel()
   tcltk::tkwm.title(window, "Application de recueil")
   tcltk::tkgrid(
@@ -42,6 +47,7 @@ create_launcher_window <- function(
       return(invisible(NULL))
     }
 
+    # Le navigateur n'est ouvert qu'après confirmation que le serveur écoute.
     browse_fn(config$app_url)
     tcltk::tkconfigure(status_label, text = launcher_status_text(state$pid, config$app_url))
   }
@@ -65,6 +71,8 @@ create_launcher_window <- function(
     pady = 16
   )
 
+  # Attend les événements Tcl/Tk. La fonction reprend lorsque la fenêtre
+  # est fermée, puis garantit un dernier arrêt du serveur.
   tcltk::tkwait.window(window)
   stop_fn(state$pid)
 }

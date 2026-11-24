@@ -1,3 +1,5 @@
+# Ce script est exécuté par le lanceur dans un nouveau processus R.
+# Il ne lance pas le navigateur : c'est la boîte de dialogue qui s'en charge.
 args <- commandArgs(trailingOnly = TRUE)
 port <- as.integer(args[[1]])
 file_arg <- grep("^--file=", commandArgs(), value = TRUE)
