@@ -269,33 +269,43 @@ database_spreadsheet_ui <- function() {
       ),
       shiny::p("Si ce champ reste vide, le fichier sera exporté sans chiffrement.")
     ),
-    DT::DTOutput("database_spreadsheet"),
+    shiny::div(
+      style = "max-height: 70vh; overflow: auto;",
+      shiny::tableOutput("database_spreadsheet")
+    ),
+    shiny::tags$script(shiny::HTML("
+      $(document).on('dblclick', '#database_spreadsheet tbody tr', function() {
+        var rowId = $(this).find('td').first().text().trim();
+        if (rowId) Shiny.setInputValue('database_spreadsheet_row_dblclick', rowId, {priority: 'event'});
+      });
+      $(document).on('dblclick', '#database_spreadsheet thead th', function() {
+        var headerName = $(this).text().trim();
+        if (headerName) Shiny.setInputValue('database_spreadsheet_header_dblclick', headerName, {priority: 'event'});
+      });
+    ")),
     shiny::textOutput("spreadsheet_status")
   )
 }
 
 database_spreadsheet_server <- function(input, output, connection, refresh_trigger) {
-  output$database_spreadsheet <- DT::renderDT({
+  spreadsheet_records <- shiny::reactive({
     refresh_trigger()
+    shiny::isolate(input$application_tabs)
     current_connection <- if (is.function(connection)) connection() else connection
     if (is.null(current_connection)) {
-      records <- empty_database_spreadsheet()
+      empty_database_spreadsheet()
     } else {
-      records <- database_spreadsheet_data(current_connection)
+      database_spreadsheet_data(current_connection)
     }
+  })
 
-    DT::datatable(
-      records,
-      rownames = FALSE,
-      filter = "top",
-      options = list(
-        dom = "ftip",
-        pageLength = 25,
-        lengthMenu = c(10, 25, 50, 100),
-        scrollX = TRUE,
-        autoWidth = TRUE
-      ),
-      callback = spreadsheet_header_callback()
-    )
-  }, server = TRUE)
+  output$database_spreadsheet <- shiny::renderTable({
+    records <- spreadsheet_records()
+    records
+  }, striped = TRUE, bordered = TRUE, hover = TRUE, rownames = FALSE)
+
+  output$spreadsheet_status <- shiny::renderText({
+    records <- spreadsheet_records()
+    paste(nrow(records), "observation(s) affichée(s).")
+  })
 }
