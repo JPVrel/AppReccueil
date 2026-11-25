@@ -64,7 +64,7 @@ create_launcher_window <- function(
   )
   tcltk::tkgrid(
     tcltk::tkbutton(window, text = "Tout quitter", command = function() {
-      stop_fn(state$pid)
+      stop_fn(state$pid, config$port)
       tcltk::tkdestroy(window)
     }),
     padx = 24,
@@ -74,5 +74,5 @@ create_launcher_window <- function(
   # Attend les événements Tcl/Tk. La fonction reprend lorsque la fenêtre
   # est fermée, puis garantit un dernier arrêt du serveur.
   tcltk::tkwait.window(window)
-  stop_fn(state$pid)
+  stop_fn(state$pid, config$port)
 }

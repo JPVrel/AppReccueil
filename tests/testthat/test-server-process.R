@@ -63,7 +63,29 @@ testthat::test_that("stop_server_process calls the injected killer", {
   killed_pid <- NULL
   kill_fn <- function(pid) killed_pid <<- pid
 
-  stop_server_process(4321L, kill_fn)
+  stop_server_process(4321L, kill_fn = kill_fn)
 
   testthat::expect_equal(killed_pid, 4321L)
+})
+
+testthat::test_that("stop_server_process verifies the port and escalates", {
+  terminated <- integer()
+  forced <- integer()
+  attempts <- 0L
+
+  find_pids <- function(port) {
+    attempts <<- attempts + 1L
+    4321L
+  }
+  stop_server_process(
+    4321L,
+    port = 8000,
+    kill_fn = function(pid) terminated <<- c(terminated, pid),
+    force_kill_fn = function(pid, signal) forced <<- c(forced, pid),
+    find_pids = find_pids,
+    sleep_fn = function(...) NULL
+  )
+
+  testthat::expect_equal(terminated, 4321L)
+  testthat::expect_true(4321L %in% forced)
 })

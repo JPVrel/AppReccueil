@@ -60,9 +60,43 @@ start_server_process <- function(
 }
 
 # Arrête uniquement le processus dont le PID a été mémorisé par le lanceur.
-stop_server_process <- function(pid, kill_fn = tools::pskill) {
-  if (!is.null(pid)) {
-    kill_fn(pid)
+stop_server_process <- function(
+  pid,
+  port = NULL,
+  kill_fn = tools::pskill,
+  force_kill_fn = tools::pskill,
+  find_pids = find_listening_pids,
+  sleep_fn = Sys.sleep
+) {
+  target_pids <- if (is.null(pid)) integer() else as.integer(pid)
+  if (!is.null(port)) {
+    target_pids <- unique(c(target_pids, as.integer(find_pids(port))))
+  }
+  target_pids <- target_pids[!is.na(target_pids) & target_pids > 0L]
+
+  if (length(target_pids) == 0L) {
+    return(invisible(NULL))
+  }
+
+  for (target_pid in target_pids) {
+    kill_fn(target_pid)
+  }
+
+  if (!is.null(port)) {
+    for (attempt in seq_len(20L)) {
+      remaining <- as.integer(find_pids(port))
+      if (length(remaining) == 0L) {
+        break
+      }
+      sleep_fn(0.05)
+    }
+
+    remaining <- as.integer(find_pids(port))
+    if (length(remaining) > 0L) {
+      for (target_pid in unique(c(target_pids, remaining))) {
+        force_kill_fn(target_pid, tools::SIGKILL)
+      }
+    }
   }
 
   invisible(NULL)
