@@ -83,8 +83,17 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
           choices = stats::setNames(c("", "TRUE", "FALSE"), c("", "Oui", "Non"))
         ))
       }
-      placeholder <- if (identical(data_type, "date")) "AAAA-MM-JJ" else NULL
-      shiny::textInput(input_id, field_name, value = "", placeholder = placeholder)
+      if (identical(data_type, "date")) {
+        return(shiny::dateInput(
+          input_id,
+          field_name,
+          value = NULL,
+          language = "fr",
+          format = "yyyy-mm-dd",
+          weekstart = 1
+        ))
+      }
+      shiny::textInput(input_id, field_name, value = "")
     }))
   })
 
@@ -110,8 +119,11 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
     definitions <- active_record_field_definitions(current_connection())
     for (field_name in definitions$name) {
       input_id <- record_field_input_id(field_name)
-      if (definitions$data_type[match(field_name, definitions$name)] %in% c("categorical", "boolean")) {
+      data_type <- definitions$data_type[match(field_name, definitions$name)]
+      if (data_type %in% c("categorical", "boolean")) {
         shiny::updateSelectInput(session, input_id, selected = "")
+      } else if (identical(data_type, "date")) {
+        shiny::updateDateInput(session, input_id, value = NA)
       } else {
         shiny::updateTextInput(session, input_id, value = "")
       }
@@ -168,6 +180,8 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
       }
       if (data_type %in% c("categorical", "boolean")) {
         shiny::updateSelectInput(session, input_id, selected = value)
+      } else if (identical(data_type, "date")) {
+        shiny::updateDateInput(session, input_id, value = if (nzchar(value)) value else NA)
       } else {
         shiny::updateTextInput(session, input_id, value = value)
       }

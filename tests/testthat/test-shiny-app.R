@@ -412,6 +412,7 @@ testthat::test_that("the questionnaire creates, edits from row double-click, and
   initialize_database(connection)
   add_typed_column(connection, "participant_code", "text")
   add_typed_column(connection, "age", "integer")
+  add_typed_column(connection, "visit_date", "date")
   refresh_trigger <- shiny::reactiveVal(0L)
 
   shiny::testServer(function(input, output, session) {
@@ -420,11 +421,14 @@ testthat::test_that("the questionnaire creates, edits from row double-click, and
     form_html <- htmltools::renderTags(output$record_questionnaire_fields)$html
     testthat::expect_match(form_html, "record_field__participant_code")
     testthat::expect_match(form_html, "record_field__age")
+    testthat::expect_match(form_html, "record_field__visit_date")
+    testthat::expect_match(form_html, "type=\"text\"[^>]*data-date-format")
 
     session$setInputs(
       record_id_value = "row-questionnaire",
       record_field__participant_code = "P001",
       record_field__age = "34",
+      record_field__visit_date = "2026-11-25",
       save_record = 1
     )
     testthat::expect_true(collection_record_exists(connection, "row-questionnaire"))
@@ -435,6 +439,7 @@ testthat::test_that("the questionnaire creates, edits from row double-click, and
       record_id_value = "row-edited",
       record_field__participant_code = "P002",
       record_field__age = "35",
+      record_field__visit_date = "2026-11-26",
       save_record = 2
     )
     testthat::expect_false(collection_record_exists(connection, "row-questionnaire"))
