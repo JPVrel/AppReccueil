@@ -44,9 +44,9 @@ Cette étape prépare les évolutions suivantes : définir le formulaire de recu
 ├── config/
 │   └── database.yml               # Paramètres locaux ou distants à modifier
 ├── data/
-│   └── .gitkeep                   # Dossier de la base SQLite locale
+│   └── .gitkeep                   # Coffres SQLite chiffrés, non versionnés
 ├── exports/
-│   └── .gitkeep                   # Exports locaux, non versionnés
+│   └── .gitkeep                   # Exports chiffrés locaux, non versionnés
 ├── shiny/
 │   ├── app.R                     # Application exécutée par le serveur local
 │   └── run_app.R                 # Runner du processus R indépendant
@@ -61,30 +61,38 @@ Depuis la racine du projet, dans R :
 source("scripts/install_dependencies.R")
 ```
 
-Le script installe les packages nécessaires à l'application (`shiny`, `DT`, `DBI`, `RSQLite`, `yaml`, `writexl`) et au développement (`testthat`). Le lanceur propose également l'installation des dépendances d'exécution si elles sont absentes.
+Le script installe les packages nécessaires à l'application (`shiny`, `DT`, `DBI`, `RSQLite`, `yaml`, `writexl`, `readxl`, `openssl`) et au développement (`testthat`). Sur macOS, installe d'abord OpenSSL 3 avec `brew install openssl@3` ; le script configure ensuite la compilation du package R `openssl` avec Homebrew.
 
 ## Base de données
 
-Les paramètres se trouvent dans [config/database.yml](config/database.yml). L'application lit cette configuration au démarrage, ouvre une connexion au début de chaque session Shiny, initialise les tables si elles n'existent pas, puis ferme la connexion quand la session se termine.
+Les paramètres se trouvent dans [config/database.yml](config/database.yml). À l'ouverture, l'accueil inventorie les bases locales, permet d'en ouvrir une avec son mot de passe, d'en créer une autre ou de protéger une ancienne SQLite. Les onglets de gestion restent inactifs tant qu'aucune base n'est ouverte.
 
 ### Mode local : SQLite
 
-La configuration par défaut est :
+La configuration par défaut indique le dossier local :
 
 ```yaml
 database:
-	mode: local
-	local:
-		path: data/recueil.sqlite
+  mode: local
+  local:
+    path: data/recueil.sqlite
 ```
 
-SQLite enregistre la base dans un fichier local. Le dossier parent est créé automatiquement. Le fichier `data/recueil.sqlite` est ignoré par Git : il reste sur l'ordinateur et ne doit pas être ajouté au dépôt. Ce mode convient au développement et à un usage local, mais un fichier SQLite partagé n'est pas le bon choix pour plusieurs utilisateurs qui accèdent à une application hébergée.
+À la création, le mot de passe est facultatif. Sans mot de passe, la base est un fichier `data/<nom>.sqlite` non chiffré ; avec un mot de passe (12 caractères minimum), elle est créée comme coffre `data/<nom>.sqlite.enc`. Le coffre utilise une enveloppe AES-256-GCM authentifiée, une clé dérivée du mot de passe par bcrypt-PBKDF et un sel aléatoire ; le mot de passe n'est pas enregistré. À l'ouverture, SQLite travaille sur une copie temporaire dans un dossier privé ; à la fermeture, elle est checkpointée puis rechiffrée. Si le processus s'arrête brutalement, la prochaine ouverture détecte le verrou abandonné, vérifie l'intégrité de la copie temporaire et la rechiffre avec le mot de passe fourni. Si l'intégrité échoue, si le verrou vient d'une autre machine, ou si une récupération elle-même a été interrompue, l'application conserve les fichiers pour récupération manuelle.
+
+Les anciennes bases `data/*.sqlite` sont proposées sous forme de copie chiffrée. L'original reste en clair et n'est pas supprimé automatiquement ; après vérification de la copie, supprime-le manuellement si tu ne veux plus conserver cette version non protégée. Les bases SQLite et coffres sont ignorés par Git. Ce mode convient au développement et à un usage local ; un fichier SQLite partagé n'est pas recommandé pour plusieurs utilisateurs hébergés.
 
 Au démarrage, l'application crée les tables `app_metadata`, `collection_records`, `column_definitions` et `category_dictionary`. `collection_records` contient un identifiant, une date de création, un payload et les colonnes physiques définies par l'utilisateur. `column_definitions` conserve les types métier, noms logiques, formules et états masqués ; `category_dictionary` conserve les codes et libellés catégoriels. Les identifiants internes stables permettent aux formules et dictionnaires de suivre un champ même s'il est renommé ou masqué.
 
-L'onglet **Base de données** présente les observations dans un tableur interactif (tri, recherche globale, filtres par colonne et pagination). Les boutons d'export proposent les formats CSV, Excel (`.xlsx`) et data frame R (`.rds`). Chaque export est téléchargé dans le navigateur et archivé avec un nom horodaté dans `exports/`. Le navigateur garde le contrôle de son propre dossier de téléchargement ; l'application ne peut pas imposer un chemin sur l'ordinateur client. Le fichier `.rds` se recharge dans R avec `readRDS("recueil-....rds")`. Les variables dérivées sont calculées à la lecture. La colonne technique `payload` est exclue de cette vue et des exports ; l'identifiant et la date restent visibles. Un double-clic sur un en-tête de variable ouvre l'onglet **Gestion des variables**, préselectionne le champ et charge son nom dans le formulaire de renommage ; pour un champ catégoriel ou dérivé, le dictionnaire ou la formule correspondante est aussi sélectionné. Les colonnes système ne sont pas modifiables depuis ce raccourci.
+L'onglet **Base de données** présente les observations dans un tableur interactif (tri, recherche globale, filtres par colonne et pagination). Le mot de passe d'export est facultatif : vide, le fichier CSV, Excel ou data frame R est téléchargé sans chiffrement ; renseigné (12 caractères minimum), il est remis en `.csv.enc`, `.xlsx.enc` ou `.rds.enc` et archivé chiffré dans `exports/`. Pour réimporter un export chiffré dans l'application, choisis le fichier `.enc` sur l'accueil et saisis son mot de passe ; le déchiffrement temporaire sert uniquement à la lecture. Le navigateur garde le contrôle du dossier de téléchargement. Les variables dérivées sont calculées à la lecture. La colonne technique `payload` est exclue de la vue et des exports ; l'identifiant et la date restent visibles. Un double-clic sur un en-tête de variable ouvre l'onglet **Gestion des variables**, préselectionne le champ et charge son nom dans le formulaire de renommage ; pour un champ catégoriel ou dérivé, le dictionnaire ou la formule correspondante est aussi sélectionné. Les colonnes système ne sont pas modifiables depuis ce raccourci.
 
-Les archives du dossier `exports/` sont ignorées par Git car elles peuvent contenir des données de recherche. Le dossier sert uniquement de copie côté serveur pour faciliter la reprise locale.
+Les fichiers de `exports/` sont ignorés par Git car ils peuvent contenir des données de recherche.
+
+### Import et fusion
+
+L'accueil accepte les fichiers CSV, Excel (`.xlsx`) et data frame R (`.rds`). Lors de la création d'une base depuis un fichier, choisis le type métier de chaque colonne. Les colonnes sont normalisées en noms de champs valides ; les valeurs numériques, dates et booléennes sont vérifiées avant écriture. Les catégories importées sont ajoutées au dictionnaire.
+
+Pour fusionner un fichier dans une base ouverte, sélectionne une colonne identifiante présente dans les deux sources et unique dans chaque source. Les colonnes du fichier qui n'existent pas dans la base sont ignorées. Les observations nouvelles sont ajoutées ; les cellules vides de la base sont complétées par les valeurs importées. Pour chaque cellule déjà renseignée différemment, une boîte de dialogue permet de conserver la valeur actuelle ou de prendre celle du fichier. Les changements sont appliqués transactionnellement après arbitrage.
 
 L'onglet **Gestion des variables** présente les champs actifs et masqués dans des tableaux indiquant leur nom, leur type, leur nature et, pour les variables dérivées, leur formule. Il permet :
 

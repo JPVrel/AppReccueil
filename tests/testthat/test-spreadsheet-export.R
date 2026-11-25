@@ -31,7 +31,7 @@ testthat::test_that("spreadsheet export filenames are timestamped and collision-
   parallel::clusterExport(
     cluster,
     c("next_spreadsheet_export_path", "reserve_spreadsheet_export_path"),
-    envir = globalenv()
+    envir = environment(next_spreadsheet_export_path)
   )
   parallel_paths <- unlist(parallel::parLapply(
     cluster,

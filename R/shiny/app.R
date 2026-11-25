@@ -5,22 +5,7 @@ build_app_ui <- function() {
     shiny::titlePanel("Application de recueil de données"),
     shiny::tabsetPanel(
       id = "application_tabs",
-      shiny::tabPanel(
-        "Accueil",
-        value = "home",
-        shiny::sidebarLayout(
-          shiny::sidebarPanel(
-            shiny::h4("Parcours"),
-            shiny::p("Cette application servira à structurer et enregistrer les données de recherche."),
-            shiny::actionButton("start_collection", "Commencer un recueil", class = "btn-primary")
-          ),
-          shiny::mainPanel(
-            shiny::h3("Bienvenue"),
-            shiny::p("La première version prépare l'interface. Les champs de recueil seront ajoutés progressivement."),
-            shiny::textOutput("status")
-          )
-        )
-      ),
+      database_home_ui(),
       database_spreadsheet_ui(),
       database_management_ui()
     )
@@ -31,58 +16,95 @@ build_app_ui <- function() {
 # par session pour isoler les utilisateurs lorsque l'application sera distante.
 build_app_server <- function(database_config = NULL, export_dir = NULL) {
   function(input, output, session) {
+    project_dir <- if (!is.null(database_config$project_dir)) {
+      database_config$project_dir
+    } else {
+      normalizePath(getwd())
+    }
+    data_dir <- if (!is.null(database_config$local$path)) {
+      dirname(database_config$local$path)
+    } else {
+      file.path(project_dir, "data")
+    }
+    dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
+
     session_export_dir <- export_dir
     if (is.null(session_export_dir)) {
-      project_dir <- if (is.null(database_config)) {
-        normalizePath(getwd())
-      } else {
-        database_config$project_dir
-      }
       session_export_dir <- database_spreadsheet_export_dir(project_dir)
     }
 
-    connection <- NULL
-    if (!is.null(database_config)) {
-      connection <- connect_database(database_config)
-      initialize_database(connection)
-      session$onSessionEnded(function() disconnect_database(connection))
-    }
+    connection <- shiny::reactiveVal(NULL)
+    vault <- shiny::reactiveVal(NULL)
     database_refresh <- shiny::reactiveVal(0L)
 
-    collection_started <- shiny::reactiveVal(FALSE)
+    if (!is.null(database_config) && identical(database_config$mode, "remote")) {
+      remote_connection <- connect_database(database_config)
+      initialize_database(remote_connection)
+      connection(remote_connection)
+      vault(list(
+        connection = remote_connection,
+        vault_path = "base distante",
+        password = NULL,
+        encrypted = FALSE,
+        remote = TRUE,
+        working_path = NULL,
+        workspace = NULL,
+        lock_path = NULL
+      ))
+    }
 
-    # Pour l'instant, le bouton simule simplement le début d'un recueil.
-    # Les champs métier remplaceront cette étape dans une prochaine version.
-    shiny::observeEvent(input$start_collection, {
-      collection_started(TRUE)
-    })
-
-    output$status <- shiny::renderText({
-      if (collection_started()) {
-        "Le parcours de recueil est prêt à être défini."
-      } else {
-        "Aucun recueil n'est commencé."
+    database_home_server(
+      input,
+      output,
+      session,
+      data_dir,
+      connection,
+      vault,
+      database_refresh
+    )
+    session$onSessionEnded(function() {
+      active_vault <- shiny::isolate(vault())
+      if (!is.null(active_vault)) {
+        try(close_database_state(active_vault), silent = TRUE)
       }
     })
 
-    output$download_database_csv <- database_spreadsheet_download_handler(
-      connection,
+    output$download_database_csv <- encrypted_database_spreadsheet_download_handler(
+      vault,
       session_export_dir,
-      "csv"
+      "csv",
+      function() input$database_export_password
     )
-    output$download_database_xlsx <- database_spreadsheet_download_handler(
-      connection,
+    output$download_database_xlsx <- encrypted_database_spreadsheet_download_handler(
+      vault,
       session_export_dir,
-      "xlsx"
+      "xlsx",
+      function() input$database_export_password
     )
-    output$download_database_rds <- database_spreadsheet_download_handler(
-      connection,
+    output$download_database_rds <- encrypted_database_spreadsheet_download_handler(
+      vault,
       session_export_dir,
-      "rds"
+      "rds",
+      function() input$database_export_password
     )
 
     database_spreadsheet_server(input, output, connection, database_refresh)
     database_management_server(input, output, session, connection, database_refresh)
+    session$onFlushed(function() {
+      for (output_id in c(
+        "database_spreadsheet",
+        "active_variables_table",
+        "archived_variables_table",
+        "category_entries",
+        "column_status",
+        "spreadsheet_status",
+        "download_database_csv",
+        "download_database_xlsx",
+        "download_database_rds"
+      )) {
+        shiny::outputOptions(output, output_id, suspendWhenHidden = FALSE)
+      }
+    }, once = TRUE)
   }
 }
 

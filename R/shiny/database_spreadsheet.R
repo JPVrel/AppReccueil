@@ -62,6 +62,9 @@ reserve_spreadsheet_export_path <- function(path) {
   if (!reserved && !file.exists(path)) {
     stop("Le fichier d'export ne peut pas être créé.")
   }
+  if (reserved) {
+    Sys.chmod(path, mode = "0600")
+  }
   reserved
 }
 
@@ -138,6 +141,71 @@ database_spreadsheet_download_handler <- function(connection, export_dir, format
   )
 }
 
+encrypted_database_spreadsheet_download_handler <- function(
+  vault_state,
+  export_dir,
+  format,
+  export_password = function() NULL
+) {
+  format <- match.arg(format, c("csv", "xlsx", "rds"))
+  current_export <- shiny::reactiveVal(NULL)
+
+  read_export_password <- function() {
+    password <- shiny::isolate(export_password())
+    if (is.null(password) || !nzchar(password)) {
+      return(NULL)
+    }
+    validate_vault_password(password)
+    password
+  }
+
+  reserve_export <- function(password) {
+    if (is.null(password)) {
+      next_spreadsheet_export_path(export_dir, format = format)
+    } else {
+      next_encrypted_export_path(export_dir, format)
+    }
+  }
+
+  shiny::downloadHandler(
+    filename = function() {
+      if (is.null(shiny::isolate(vault_state()))) {
+        stop("Ouvre une base avant d'exporter.")
+      }
+      password <- read_export_password()
+      export_path <- reserve_export(password)
+      current_export(list(path = export_path, password = password))
+      basename(export_path)
+    },
+    content = function(file) {
+      vault <- shiny::isolate(vault_state())
+      if (is.null(vault)) {
+        stop("Ouvre une base chiffrée avant d'exporter.")
+      }
+
+      export <- shiny::isolate(current_export())
+      if (is.null(export)) {
+        password <- read_export_password()
+        export <- list(path = reserve_export(password), password = password)
+      }
+      workspace <- new_private_database_workspace()
+      on.exit(unlink(workspace$directory, recursive = TRUE), add = TRUE)
+      plain_path <- file.path(workspace$directory, paste0("export.", format))
+      write_database_spreadsheet(vault$connection, plain_path, format)
+      Sys.chmod(plain_path, mode = "0600")
+      if (is.null(export$password)) {
+        copied <- file.copy(plain_path, export$path, overwrite = TRUE)
+      } else {
+        encrypt_file_with_password(plain_path, export$path, export$password)
+        copied <- TRUE
+      }
+      if (!copied || !file.copy(export$path, file, overwrite = TRUE)) {
+        stop("L'export chiffré ne peut pas être copié vers le téléchargement.")
+      }
+    }
+  )
+}
+
 empty_database_spreadsheet <- function() {
   data.frame(
     id = character(),
@@ -190,7 +258,12 @@ database_spreadsheet_ui <- function() {
         shiny::downloadButton("download_database_csv", "CSV"),
         shiny::downloadButton("download_database_xlsx", "Excel (.xlsx)"),
         shiny::downloadButton("download_database_rds", "R data frame (.rds)")
-      )
+      ),
+      shiny::passwordInput(
+        "database_export_password",
+        "Mot de passe pour chiffrer l'export (facultatif)"
+      ),
+      shiny::p("Si ce champ reste vide, le fichier sera exporté sans chiffrement.")
     ),
     DT::DTOutput("database_spreadsheet"),
     shiny::textOutput("spreadsheet_status")
@@ -200,10 +273,11 @@ database_spreadsheet_ui <- function() {
 database_spreadsheet_server <- function(input, output, connection, refresh_trigger) {
   output$database_spreadsheet <- DT::renderDT({
     refresh_trigger()
-    if (is.null(connection)) {
+    current_connection <- if (is.function(connection)) connection() else connection
+    if (is.null(current_connection)) {
       records <- empty_database_spreadsheet()
     } else {
-      records <- database_spreadsheet_data(connection)
+      records <- database_spreadsheet_data(current_connection)
     }
 
     DT::datatable(

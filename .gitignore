@@ -1,5 +1,12 @@
 .DS_Store
 data/*.sqlite
+data/*.sqlite.active/
+data/*.sqlite.creating/
+data/*.sqlite.enc
+data/*.sqlite.enc.active/
+data/*.sqlite.enc.creating/
+data/*.sqlite.enc.previous
+data/*.sqlite.enc.damaged-*
 exports/*
 !exports/.gitkeep
 .Rproj.user/

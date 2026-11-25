@@ -229,6 +229,9 @@ formula_editor_values <- function(connection, column_id) {
 database_management_server <- function(input, output, session, connection, refresh_trigger) {
   definitions <- shiny::reactiveVal(empty_column_definitions())
   column_status <- shiny::reactiveVal("")
+  current_connection <- function() {
+    if (is.function(connection)) shiny::isolate(connection()) else connection
+  }
 
   refresh_category_entry_choices <- function(selected_column = input$dictionary_column_id) {
     current_definitions <- read_reactive_state(definitions)
@@ -239,7 +242,7 @@ database_management_server <- function(input, output, session, connection, refre
     ]
     if (length(selected_column) == 1L && !is.na(selected_column) &&
       selected_column %in% categorical$column_id) {
-      categories <- list_category_entries(connection, selected_column)
+      categories <- list_category_entries(current_connection(), selected_column)
       entry_choices <- select_choices(
         categories$category_id,
         paste(categories$label, "(", categories$code, ")")
@@ -280,12 +283,13 @@ database_management_server <- function(input, output, session, connection, refre
   }
 
   refresh_controls <- function() {
-    if (is.null(connection)) {
+    active_connection <- current_connection()
+    if (is.null(active_connection)) {
       definitions(empty_column_definitions())
       return(invisible(NULL))
     }
 
-    current_definitions <- list_column_definitions(connection, include_hidden = TRUE)
+    current_definitions <- list_column_definitions(active_connection, include_hidden = TRUE)
     definitions(current_definitions)
     active <- current_definitions[!current_definitions$is_hidden, , drop = FALSE]
     archived <- current_definitions[current_definitions$is_hidden, , drop = FALSE]
@@ -324,7 +328,7 @@ database_management_server <- function(input, output, session, connection, refre
   }
 
   run_action <- function(action, success_message) {
-    if (is.null(connection)) {
+    if (is.null(current_connection())) {
       column_status("La base de données n'est pas connectée.")
       return(invisible(NULL))
     }
@@ -352,7 +356,7 @@ database_management_server <- function(input, output, session, connection, refre
   }
 
   load_formula_editor <- function(column_id) {
-    values <- tryCatch(formula_editor_values(connection, column_id), error = function(condition) NULL)
+    values <- tryCatch(formula_editor_values(current_connection(), column_id), error = function(condition) NULL)
     if (is.null(values)) {
       return(invisible(NULL))
     }
@@ -394,28 +398,32 @@ database_management_server <- function(input, output, session, connection, refre
       ,
       drop = FALSE
     ]
-    if (is.null(connection) || length(column_id) != 1L || is.na(column_id) ||
+    if (is.null(current_connection()) || length(column_id) != 1L || is.na(column_id) ||
       !column_id %in% active_categories$column_id) {
       return(data.frame(Code = "Aucune colonne catégorielle sélectionnée.", Libellé = ""))
     }
-    categories <- list_category_entries(connection, column_id)
+    categories <- list_category_entries(current_connection(), column_id)
     category_table_data(categories)
   }, striped = TRUE, bordered = TRUE, hover = TRUE, rownames = FALSE)
   output$column_status <- shiny::renderText(column_status())
   output$spreadsheet_status <- shiny::renderText(column_status())
 
   refresh_controls()
+  shiny::observeEvent(refresh_trigger(), refresh_controls(), ignoreInit = TRUE)
+  if (is.function(connection)) {
+    shiny::observeEvent(connection(), refresh_controls(), ignoreInit = TRUE)
+  }
 
   shiny::observeEvent(input$add_column, {
     run_action(
-      function() add_typed_column(connection, input$new_column_name, input$new_column_type),
-      function(column_id) paste("Colonne ajoutée :", get_column_definition(connection, column_id)$name[[1]])
+      function() add_typed_column(current_connection(), input$new_column_name, input$new_column_type),
+      function(column_id) paste("Colonne ajoutée :", get_column_definition(current_connection(), column_id)$name[[1]])
     )
   })
   shiny::observeEvent(input$rename_column, {
     run_action(
       function() rename_column_definition(
-        connection,
+        current_connection(),
         current_column_id(input$column_to_rename),
         input$renamed_column_name
       ),
@@ -424,20 +432,20 @@ database_management_server <- function(input, output, session, connection, refre
   })
   shiny::observeEvent(input$hide_column, {
     run_action(
-      function() hide_column(connection, current_column_id(input$column_to_hide)),
+      function() hide_column(current_connection(), current_column_id(input$column_to_hide)),
       function(...) "Colonne masquée. Elle reste récupérable."
     )
   })
   shiny::observeEvent(input$restore_column, {
     run_action(
-      function() restore_column(connection, input$column_to_restore),
+      function() restore_column(current_connection(), input$column_to_restore),
       function(name) paste("Colonne restaurée sous le nom :", name)
     )
   })
   shiny::observeEvent(input$add_category, {
     run_action(
       function() add_category_entry(
-        connection,
+        current_connection(),
         input$dictionary_column_id,
         input$new_category_code,
         input$new_category_label
@@ -448,7 +456,7 @@ database_management_server <- function(input, output, session, connection, refre
   shiny::observeEvent(input$update_category, {
     run_action(
       function() update_category_entry(
-        connection,
+        current_connection(),
         input$category_to_edit,
         input$edited_category_code,
         input$edited_category_label
@@ -459,7 +467,7 @@ database_management_server <- function(input, output, session, connection, refre
   shiny::observeEvent(input$remove_category, {
     run_action(
       function() remove_category_entry(
-        connection,
+        current_connection(),
         input$category_to_remove,
         input$replacement_category
       ),
@@ -468,14 +476,14 @@ database_management_server <- function(input, output, session, connection, refre
   })
   shiny::observeEvent(input$add_derived_column, {
     run_action(
-      function() add_derived_column(connection, input$derived_column_name, selected_formula()),
-      function(column_id) paste("Variable dérivée créée :", get_column_definition(connection, column_id)$name[[1]])
+      function() add_derived_column(current_connection(), input$derived_column_name, selected_formula()),
+      function(column_id) paste("Variable dérivée créée :", get_column_definition(current_connection(), column_id)$name[[1]])
     )
   })
   shiny::observeEvent(input$update_derived_formula, {
     run_action(
       function() update_derived_formula(
-        connection,
+        current_connection(),
         input$derived_column_to_edit,
         selected_formula()
       ),
@@ -485,7 +493,7 @@ database_management_server <- function(input, output, session, connection, refre
 
   shiny::observeEvent(input$derived_column_to_edit, {
     column_id <- input$derived_column_to_edit
-    if (is.null(connection) || length(column_id) != 1L || is.na(column_id) || !nzchar(column_id)) {
+    if (is.null(current_connection()) || length(column_id) != 1L || is.na(column_id) || !nzchar(column_id)) {
       return()
     }
 

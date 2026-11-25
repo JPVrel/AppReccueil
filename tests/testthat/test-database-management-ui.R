@@ -71,14 +71,15 @@ testthat::test_that("formula editor values are reconstructed from a stored defin
 })
 
 testthat::test_that("the management UI handles types, dictionaries, formulas, and archives", {
-  database_config <- list(
-    mode = "local",
-    local = list(path = tempfile(fileext = ".sqlite"))
-  )
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  management_server <- function(input, output, session) {
+    database_management_server(input, output, session, connection, shiny::reactiveVal(0L))
+  }
 
-  shiny::testServer(build_app_server(database_config), {
-    external_connection <- DBI::dbConnect(RSQLite::SQLite(), database_config$local$path)
-    on.exit(DBI::dbDisconnect(external_connection), add = TRUE)
+  shiny::testServer(management_server, {
+    external_connection <- connection
 
     session$setInputs(
       new_column_name = "cohort",
@@ -201,14 +202,14 @@ testthat::test_that("the management UI handles types, dictionaries, formulas, an
 })
 
 testthat::test_that("spreadsheet header events route editable fields and reject system columns", {
-  database_config <- list(
-    mode = "local",
-    local = list(path = tempfile(fileext = ".sqlite"))
-  )
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  management_server <- function(input, output, session) {
+    database_management_server(input, output, session, connection, shiny::reactiveVal(0L))
+  }
 
-  shiny::testServer(build_app_server(database_config), {
-    external_connection <- DBI::dbConnect(RSQLite::SQLite(), database_config$local$path)
-    on.exit(DBI::dbDisconnect(external_connection), add = TRUE)
+  shiny::testServer(management_server, {
     session$setInputs(new_column_name = "age", new_column_type = "integer", add_column = 1)
 
     session$setInputs(database_spreadsheet_header_dblclick = "age")

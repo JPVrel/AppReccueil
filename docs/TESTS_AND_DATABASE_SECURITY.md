@@ -6,6 +6,11 @@ Ce document garde une trace des validations effectuées et des mesures à prévo
 
 | Date | Périmètre | Résultat |
 | --- | --- | --- |
+| 2026-11-25 | Revue de sécurité avant publication | Entiers hors plage refusés ; bcrypt-PBKDF limité au coût du format ; copies checkpointées et verrouillées ; récupération des verrous sérialisée avec validation des coffres abandonnés ; créations échouées nettoyées. Test parallèle : un seul processus récupère un verrou périmé. |
+| 2026-11-25 | Suite complète après audit de sécurité | 110 cas, 382 assertions, 0 échec, 0 erreur et 0 avertissement. |
+| 2026-11-25 | Accueil, coffre et import | Tests couvrent création/ouverture/fermeture avec ou sans mot de passe, copie protégée d'une SQLite ancienne, import CSV/XLSX/RDS, typage, fusion par clé, remplissage, ajout et choix de conflits. Exports protégés réimportables avec mot de passe ; les exports sans mot de passe restent en clair. |
+| 2026-11-25 | Suite complète après parcours d'accueil | 100 cas de test, 345 assertions, 0 échec, 0 erreur et 0 avertissement. |
+| 2026-11-25 | Vérification navigateur isolée | Création sans mot de passe depuis CSV synthétique ; CSV et XLSX clairs HTTP 200 ; XLSX/RDS protégés `.enc` HTTP 200 ; RDS chiffré relu après déchiffrement. Aucune donnée réelle n'a été modifiée. |
 | 2026-11-25 | Exports CSV, Excel et data frame R | Écriture et archivage testés pour CSV, XLSX et RDS ; valeurs dérivées présentes, colonnes masquées et `payload` absents. Le CSV neutralise les valeurs texte commençant par une formule. Dépendance `writexl` ajoutée aux packages d'exécution. |
 | 2026-11-25 | Réservation des archives | Noms créés via verrou de répertoire atomique ; test parallèle de réservations simultanées sans collision. |
 | 2026-11-25 | Exports depuis le navigateur | Les trois endpoints répondent HTTP 200 avec un nom d'archive horodaté ; XLSX vérifié comme classeur ZIP valide, RDS relu par `readRDS()` comme data frame. |
@@ -28,6 +33,7 @@ Ce document garde une trace des validations effectuées et des mesures à prévo
 - Connexion et déconnexion DBI, configuration locale/distante et dépendances.
 - Contrôles Shiny, table de variables, callbacks et affichage des erreurs.
 - Tableur central : lignes vides ou renseignées, colonnes dérivées, sélection par en-tête et téléchargements CSV, XLSX et RDS.
+- Accueil : inventaire, ouverture/création de coffre, conversion par copie des anciennes bases, typage des colonnes importées et fusion par clé avec arbitrage.
 - Double-clic navigateur sur les colonnes stockées, catégorielles, dérivées et système ; les champs système sont refusés.
 - Recherche globale avec résultat et sans résultat, pagination au-delà de 25 lignes, et rafraîchissement après renommage.
 
@@ -45,6 +51,10 @@ testthat::test_dir("tests/testthat")
 - Les changements de code catégoriel, réaffectations et changements de schéma sont transactionnels.
 - Le masquage conserve les colonnes et valeurs ; il n'existe pas de suppression physique depuis l'interface.
 - Les secrets d'une base distante sont attendus via des variables d'environnement, pas dans le dépôt.
+- Les bases et exports pour lesquels un mot de passe est défini utilisent AES-256-GCM et une clé dérivée du mot de passe ; aucune clé n'est stockée avec les données. Laisser le mot de passe vide crée ou exporte un fichier en clair.
+- Pendant une session, SQLite utilise une copie temporaire déchiffrée, dans un répertoire privé. Après un arrêt brutal, la prochaine ouverture vérifie puis rechiffre la copie ; si elle est invalide, les fichiers temporaires sont conservés pour récupération manuelle.
+- Si l'application est interrompue pendant la récupération d'un verrou, le marqueur `.recovery` est volontairement conservé ; après avoir vérifié qu'aucun processus ne travaille sur cette base, retire ce marqueur manuellement avant de rouvrir.
+- La conversion d'une ancienne SQLite conserve la source en clair ; l'accueil avertit et ne la supprime pas automatiquement.
 - La vue tableur et ses exports omettent `payload`, colonne technique non nécessaire à l'utilisateur.
 - Les archives côté serveur sont conservées dans `exports/`, mais ignorées par Git pour ne pas versionner des observations.
 - L'application est actuellement locale et ne possède pas d'authentification ni de rôles.
@@ -63,7 +73,7 @@ testthat::test_dir("tests/testthat")
 ## Parcours navigateur à valider pour l'onglet tableur
 
 - Table vide : en-têtes de base présents, message de table vide, aucun voile Shiny.
-- Table alimentée : lignes, tri, filtres globaux/par colonne, pagination et exports CSV, XLSX et RDS.
+- Table alimentée : lignes, tri, filtres globaux/par colonne, pagination et exports CSV, XLSX et RDS chiffrés.
 - Double-clic sur un champ modifiable : passage à Gestion des variables, choix et nom préremplis.
 - Double-clic sur une variable catégorielle ou dérivée : dictionnaire ou formule correspondante chargés.
 - Double-clic sur une colonne technique, en-tête inconnu ou champ masqué : aucune édition, message clair.

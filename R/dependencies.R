@@ -1,6 +1,6 @@
 # Packages nécessaires pour utiliser l'application, hors outils de test.
 runtime_packages <- function() {
-  c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl")
+  c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl")
 }
 
 # Packages utilisés pour l'application et son développement.
@@ -17,6 +17,37 @@ missing_packages <- function(
   packages[!vapply(packages, installed_fn, logical(1))]
 }
 
+openssl_install_configure_vars <- function(
+  packages,
+  platform = Sys.info()[["sysname"]],
+  homebrew_roots = c("/opt/homebrew/opt/openssl@3", "/usr/local/opt/openssl@3")
+) {
+  if (!"openssl" %in% packages || !identical(platform, "Darwin")) {
+    return(NULL)
+  }
+
+  available <- homebrew_roots[vapply(
+    homebrew_roots,
+    function(root) dir.exists(file.path(root, "include", "openssl")) && dir.exists(file.path(root, "lib")),
+    logical(1)
+  )]
+  if (length(available) == 0L) {
+    return(NULL)
+  }
+
+  prefix <- available[[1]]
+  stats::setNames(
+    paste(
+      "INCLUDE_DIR=",
+      file.path(prefix, "include"),
+      "LIB_DIR=",
+      file.path(prefix, "lib"),
+      sep = ""
+    ),
+    "openssl"
+  )
+}
+
 # Installe seulement les packages manquants et ne réinstalle pas le reste.
 # install_fn est injectable pour tester le choix des packages sans Internet.
 install_dependencies <- function(
@@ -27,7 +58,16 @@ install_dependencies <- function(
   missing <- missing_packages(packages, installed_fn)
 
   if (length(missing) > 0) {
-    install_fn(missing, repos = "https://cloud.r-project.org")
+    configure_vars <- openssl_install_configure_vars(missing)
+    if (is.null(configure_vars)) {
+      install_fn(missing, repos = "https://cloud.r-project.org")
+    } else {
+      install_fn(
+        missing,
+        repos = "https://cloud.r-project.org",
+        configure.vars = configure_vars
+      )
+    }
   }
 
   invisible(missing)
