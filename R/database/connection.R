@@ -1,3 +1,4 @@
+# Une seule fonction choisit le backend DBI ; le reste de l'application ne dépend pas du driver.
 connect_database <- function(database_config) {
   if (identical(database_config$mode, "local")) {
     database_path <- database_config$local$path

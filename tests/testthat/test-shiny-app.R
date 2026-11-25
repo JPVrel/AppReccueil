@@ -8,6 +8,9 @@ testthat::test_that("the UI renders the database column-management tab", {
   testthat::expect_match(ui_html, "Colonnes de la BDD")
   testthat::expect_match(ui_html, "add_column")
   testthat::expect_match(ui_html, "rename_column")
+  testthat::expect_match(ui_html, "active_variables_table")
+  testthat::expect_match(ui_html, "archived_variables_table")
+  testthat::expect_match(ui_html, "category_entries")
 })
 
 testthat::test_that("the collection status changes after starting", {
@@ -26,14 +29,17 @@ testthat::test_that("a configured Shiny session initializes the database", {
 
   shiny::testServer(build_app_server(database_config), {
     testthat::expect_true(file.exists(database_config$local$path))
-    testthat::expect_match(output$column_names, "payload")
+    external_connection <- DBI::dbConnect(RSQLite::SQLite(), database_config$local$path)
+    on.exit(DBI::dbDisconnect(external_connection), add = TRUE)
+    testthat::expect_equal(nrow(column_table_data(list_column_definitions(external_connection))), 0L)
 
     session$setInputs(
       new_column_name = "age",
       new_column_type = "INTEGER",
       add_column = 1
     )
-    testthat::expect_match(output$column_names, "age")
+    active_table <- column_table_data(list_column_definitions(external_connection))
+    testthat::expect_true("age" %in% active_table$Variable)
     testthat::expect_match(output$column_status, "Colonne ajoutée : age")
 
     session$setInputs(
@@ -41,9 +47,10 @@ testthat::test_that("a configured Shiny session initializes the database", {
       renamed_column_name = "participant_age",
       rename_column = 1
     )
-    testthat::expect_match(output$column_names, "participant_age")
+    active_table <- column_table_data(list_column_definitions(external_connection))
+    testthat::expect_true("participant_age" %in% active_table$Variable)
     testthat::expect_match(output$column_status, "Colonne renommée : participant_age")
-    testthat::expect_false(grepl("\\nage\\n", output$column_names))
+    testthat::expect_false("age" %in% active_table$Variable)
 
     session$setInputs(
       new_column_name = "participant_age",

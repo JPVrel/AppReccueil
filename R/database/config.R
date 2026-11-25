@@ -1,3 +1,4 @@
+# Lit le YAML de configuration et transforme les chemins locaux en chemins absolus.
 database_value_or <- function(value, fallback) {
   if (is.null(value)) fallback else value
 }

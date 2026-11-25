@@ -6,7 +6,7 @@ Application Shiny locale destinée à accompagner le recueil de données d'un pr
 
 Cette première version établit le socle technique de l'application. Elle permet de démarrer localement un serveur Shiny depuis une boîte de dialogue, d'ouvrir l'application dans le navigateur par défaut et d'arrêter le serveur proprement.
 
-Le parcours Shiny actuel reste volontairement minimal. L'onglet « Colonnes de la BDD » permet d'adapter la structure de la table des recueils ; les écrans de saisie et l'enregistrement des réponses seront ajoutés ensuite.
+Le parcours Shiny actuel reste volontairement minimal. L'onglet « Colonnes de la BDD » permet de définir les champs, dictionnaires et calculs ; le formulaire de saisie des réponses sera ajouté ensuite.
 
 Cette étape prépare les évolutions suivantes : définir le formulaire de recueil, ajouter les règles de validation, enregistrer les observations, puis préparer l'utilisation par plusieurs personnes.
 
@@ -17,16 +17,27 @@ Cette étape prépare les évolutions suivantes : définir le formulaire de recu
 ├── app.R                         # Point d'entrée Shiny reconnu par Positron
 ├── launcher.R                    # Boîte de dialogue de lancement local
 ├── R/
-│   ├── config.R                  # Configuration des chemins et du serveur
-│   ├── database_columns.R        # Lecture, ajout et renommage des colonnes SQL
-│   ├── database_config.R         # Lecture et validation de la configuration DB
-│   ├── database_connection.R     # Connexions SQLite ou driver distant DBI
-│   ├── database_schema.R          # Création des tables initiales
+│   ├── database/
+│   │   ├── archive.R             # Masquage réversible et restauration
+│   │   ├── catalog.R             # Métadonnées et identifiants stables
+│   │   ├── categories.R          # Dictionnaires catégoriels
+│   │   ├── columns.R             # Opérations sur les colonnes SQL
+│   │   ├── config.R              # Lecture de la configuration DB
+│   │   ├── connection.R          # Connexions SQLite ou driver distant DBI
+│   │   ├── dates.R               # Validation des dates ISO
+│   │   ├── fields.R              # Création des champs typés
+│   │   ├── formulas.R            # Validation et calcul des variables dérivées
+│   │   ├── records.R             # Lecture avec recalcul des formules
+│   │   └── schema.R              # Création des tables et synchronisation du catalogue
+│   ├── launcher/
+│   │   ├── config.R              # Chemins et paramètres du lanceur
+│   │   ├── server_process.R      # Démarrage, attente et arrêt du serveur
+│   │   └── ui.R                  # Fenêtre Tcl/Tk
+│   ├── shiny/
+│   │   ├── app.R                 # Interface et logique Shiny
+│   │   └── database_management.R # Tableaux et contrôles de gestion des variables
 │   ├── dependencies.R            # Détection et installation des packages
-│   ├── launcher_ui.R             # Fenêtre Tcl/Tk
-│   ├── load_modules.R            # Chargement des modules R
-│   ├── server_process.R          # Démarrage, attente et arrêt du serveur
-│   └── shiny_app.R               # Interface et logique Shiny
+│   └── load_modules.R             # Chargement récursif des modules R
 ├── scripts/
 │   └── install_dependencies.R    # Installation des dépendances
 ├── config/
@@ -66,14 +77,23 @@ database:
 
 SQLite enregistre la base dans un fichier local. Le dossier parent est créé automatiquement. Le fichier `data/recueil.sqlite` est ignoré par Git : il reste sur l'ordinateur et ne doit pas être ajouté au dépôt. Ce mode convient au développement et à un usage local, mais un fichier SQLite partagé n'est pas le bon choix pour plusieurs utilisateurs qui accèdent à une application hébergée.
 
-Le schéma initial contient deux tables techniques : `app_metadata` et `collection_records`. La seconde contient un identifiant, une date de création et un payload texte. Ces tables sont créées au démarrage, mais l'interface actuelle n'enregistre pas encore de données de recherche ; les champs et opérations métier viendront ensuite.
+Au démarrage, l'application crée les tables `app_metadata`, `collection_records`, `column_definitions` et `category_dictionary`. `collection_records` contient un identifiant, une date de création, un payload et les colonnes physiques définies par l'utilisateur. `column_definitions` conserve les types métier, noms logiques, formules et états masqués ; `category_dictionary` conserve les codes et libellés catégoriels. Les identifiants internes stables permettent aux formules et dictionnaires de suivre un champ même s'il est renommé ou masqué.
 
-L'onglet **Colonnes de la BDD** liste les colonnes de `collection_records` et permet :
+L'onglet **Colonnes de la BDD** présente les champs actifs et masqués dans des tableaux indiquant leur nom, leur type, leur nature et, pour les variables dérivées, leur formule. Il permet :
 
-- d'ajouter une colonne de type `TEXT`, `INTEGER`, `REAL`, `NUMERIC`, `DATE` ou `BOOLEAN` ;
-- de renommer une colonne personnalisée ; le renommage conserve les valeurs déjà présentes.
+- d'ajouter des champs texte, entiers, décimaux, dates et catégoriels ;
+- de renommer les champs personnalisés ; les valeurs existantes sont conservées ;
+- de masquer et restaurer un champ sans supprimer ses données ;
+- de gérer les entrées des dictionnaires catégoriels ;
+- de définir et modifier des variables dérivées à l'aide d'un constructeur visuel.
 
-Les colonnes techniques `id`, `created_at` et `payload` sont protégées. Il n'y a pas de commande pour supprimer une colonne : cette première interface évite donc la suppression accidentelle de données. Le nom doit commencer par une lettre et ne contenir que des lettres, chiffres et underscores. Les nouvelles colonnes sont nullable, ce qui permet de les ajouter même si la table contient déjà des lignes.
+Les colonnes techniques `id`, `created_at` et `payload` sont protégées. Le masquage déplace le nom SQL physique vers un nom interne `__hidden_N`, sans supprimer la colonne ni ses valeurs. À la restauration, le nom d'origine est repris s'il est libre ; sinon, un suffixe `_2`, `_3`, etc. est ajouté. Les formules suivent les identifiants internes et continuent de fonctionner si leur source est renommée ou masquée.
+
+Les champs catégoriels sont stockés par code texte, avec un libellé séparé. Modifier un code met à jour les réponses existantes ; supprimer une catégorie exige de choisir une catégorie de remplacement, puis réaffecte les réponses avant de retirer l'entrée. Les champs date sont des dates sans heure, validées au format strict `YYYY-MM-DD`.
+
+Les variables dérivées sont des colonnes virtuelles : leur formule est conservée dans `column_definitions`, et `read_collection_records()` les recalcule à chaque lecture. Le constructeur propose l'arithmétique numérique, les comparaisons, les différences de dates en jours et les conditions SI/SINON. Les formules ne sont jamais exécutées comme du code R libre. Une source manquante ou une division par zéro donne une valeur manquante ; les références incompatibles et les dépendances circulaires sont refusées.
+
+Les nouveaux champs sont nullable, ce qui permet de les ajouter même si la table contient déjà des lignes. Le formulaire de collecte et l'écriture des réponses ne sont pas encore implémentés. En mode local, tous les utilisateurs peuvent gérer le schéma ; avant un déploiement partagé, il faudra ajouter l'authentification et des droits d'administration.
 
 ### Mode distant : PostgreSQL
 
@@ -132,7 +152,7 @@ source("launcher.R")
 
 Elle permet de lancer le serveur Shiny, d'ouvrir `http://127.0.0.1:8000` dans le navigateur par défaut et d'arrêter proprement le serveur.
 
-Dans l'application, ouvrez l'onglet **Colonnes de la BDD** pour consulter les colonnes de la table des recueils, en ajouter une ou renommer une colonne personnalisée.
+Dans l'application, ouvrez l'onglet **Colonnes de la BDD** pour créer des champs, configurer leurs dictionnaires, définir des formules, les renommer, les masquer ou les restaurer.
 
 Pour lancer directement l'application Shiny dans Positron, utilisez **Run App** sur `app.R`.
 
@@ -148,4 +168,4 @@ Les tests suivent une boucle de développement inspirée de l'Extreme Programmin
 
 ## État actuel
 
-La version actuelle fournit un parcours d'accueil, un lanceur local, une base SQLite configurable et un onglet de gestion des colonnes. Les champs de recueil, la validation métier et l'écriture des observations ne sont pas encore implémentés ; les prochaines étapes les ajouteront progressivement.
+La version actuelle fournit un parcours d'accueil, un lanceur local, une base SQLite configurable et un gestionnaire de champs avec dictionnaires, dates, formules dynamiques et archivage réversible. Le formulaire de recueil, la validation complète des réponses et l'écriture des observations restent à ajouter.

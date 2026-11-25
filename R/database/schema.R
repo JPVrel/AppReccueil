@@ -1,3 +1,4 @@
+# Le schéma est idempotent : une nouvelle session peut initialiser une base existante.
 database_schema_sql <- function() {
   c(
     "CREATE TABLE IF NOT EXISTS app_metadata (key VARCHAR(255) PRIMARY KEY, value TEXT NOT NULL)",
@@ -7,7 +8,8 @@ database_schema_sql <- function() {
       "created_at TIMESTAMP NOT NULL,",
       "payload TEXT NOT NULL",
       ")"
-    )
+    ),
+    column_catalog_sql()
   )
 }
 
@@ -15,6 +17,8 @@ initialize_database <- function(connection) {
   for (statement in database_schema_sql()) {
     DBI::dbExecute(connection, statement)
   }
+
+  synchronize_column_catalog(connection)
 
   invisible(connection)
 }

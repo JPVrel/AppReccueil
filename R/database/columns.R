@@ -1,3 +1,4 @@
+# Les noms sont validés avant d'être cités par DBI et utilisés dans du SQL DDL.
 record_table_name <- function() {
   "collection_records"
 }
@@ -42,7 +43,16 @@ add_record_column <- function(connection, name, type) {
     sprintf("ALTER TABLE %s ADD COLUMN %s %s", table_sql, column_sql, type)
   )
 
-  invisible(name)
+  data_type <- switch(
+    type,
+    TEXT = "text",
+    INTEGER = "integer",
+    REAL = "real",
+    NUMERIC = "numeric",
+    DATE = "date",
+    BOOLEAN = "boolean"
+  )
+  register_column_definition(connection, name, name, data_type)
 }
 
 rename_record_column <- function(connection, old_name, new_name) {
@@ -74,6 +84,7 @@ rename_record_column <- function(connection, old_name, new_name) {
       new_column_sql
     )
   )
+  update_column_definition_names(connection, old_name, new_name)
 
   invisible(new_name)
 }
