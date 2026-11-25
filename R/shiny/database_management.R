@@ -1,7 +1,8 @@
 # Cet onglet gère les métadonnées et le schéma ; aucune colonne n'est supprimée physiquement.
 database_management_ui <- function() {
   shiny::tabPanel(
-    "Colonnes de la BDD",
+    "Gestion des variables",
+    value = "column_manager",
     shiny::fluidRow(
       shiny::column(
         width = 4,
@@ -225,7 +226,7 @@ formula_editor_values <- function(connection, column_id) {
   )
 }
 
-database_management_server <- function(input, output, session, connection) {
+database_management_server <- function(input, output, session, connection, refresh_trigger) {
   definitions <- shiny::reactiveVal(empty_column_definitions())
   column_status <- shiny::reactiveVal("")
 
@@ -331,6 +332,7 @@ database_management_server <- function(input, output, session, connection) {
     tryCatch({
       result <- action()
       refresh_controls()
+      refresh_trigger(refresh_trigger() + 1L)
       column_status(success_message(result))
     }, error = function(condition) {
       column_status(conditionMessage(condition))
@@ -347,6 +349,25 @@ database_management_server <- function(input, output, session, connection) {
       false_value = input$formula_false_value,
       result_type = input$formula_result_type
     )
+  }
+
+  load_formula_editor <- function(column_id) {
+    values <- tryCatch(formula_editor_values(connection, column_id), error = function(condition) NULL)
+    if (is.null(values)) {
+      return(invisible(NULL))
+    }
+
+    shiny::updateSelectInput(session, "formula_mode", selected = values$mode)
+    shiny::updateSelectInput(session, "formula_left_id", selected = values$left_id)
+    shiny::updateSelectInput(session, "formula_operator", selected = values$operator)
+    shiny::updateSelectInput(session, "formula_right_id", selected = values$right_id)
+    if (identical(values$mode, "if_else")) {
+      shiny::updateSelectInput(session, "formula_result_type", selected = values$result_type)
+      shiny::updateTextInput(session, "formula_true_value", value = values$true_value)
+      shiny::updateTextInput(session, "formula_false_value", value = values$false_value)
+    }
+
+    invisible(values)
   }
 
   output$active_variables_table <- shiny::renderTable({
@@ -381,6 +402,7 @@ database_management_server <- function(input, output, session, connection) {
     category_table_data(categories)
   }, striped = TRUE, bordered = TRUE, hover = TRUE, rownames = FALSE)
   output$column_status <- shiny::renderText(column_status())
+  output$spreadsheet_status <- shiny::renderText(column_status())
 
   refresh_controls()
 
@@ -467,20 +489,52 @@ database_management_server <- function(input, output, session, connection) {
       return()
     }
 
-    values <- tryCatch(formula_editor_values(connection, column_id), error = function(condition) NULL)
-    if (is.null(values)) {
+    load_formula_editor(column_id)
+  })
+
+  shiny::observeEvent(input$database_spreadsheet_header_dblclick, {
+    # Le nom de colonne reçu du navigateur est résolu dans le catalogue actif ;
+    # les colonnes système et masquées ne deviennent jamais éditables par ce raccourci.
+    header_name <- input$database_spreadsheet_header_dblclick
+    target <- spreadsheet_header_edit_target(
+      read_reactive_state(definitions),
+      header_name
+    )
+
+    if (is.null(target)) {
+      column_status(paste("L'en-tête", shQuote(header_name), "n'est pas une variable modifiable."))
       return()
     }
 
-    shiny::updateSelectInput(session, "formula_mode", selected = values$mode)
-    shiny::updateSelectInput(session, "formula_left_id", selected = values$left_id)
-    shiny::updateSelectInput(session, "formula_operator", selected = values$operator)
-    shiny::updateSelectInput(session, "formula_right_id", selected = values$right_id)
-    if (identical(values$mode, "if_else")) {
-      shiny::updateSelectInput(session, "formula_result_type", selected = values$result_type)
-      shiny::updateTextInput(session, "formula_true_value", value = values$true_value)
-      shiny::updateTextInput(session, "formula_false_value", value = values$false_value)
+    active <- read_reactive_state(definitions)
+    active <- active[!active$is_hidden, , drop = FALSE]
+    shiny::updateSelectInput(
+      session,
+      "column_to_rename",
+      choices = select_choices(active$name, active$name),
+      selected = target$name[[1]]
+    )
+    shiny::updateTextInput(session, "renamed_column_name", value = target$name[[1]])
+    shiny::updateTabsetPanel(session, "application_tabs", selected = "column_manager")
+
+    if (identical(target$data_type[[1]], "categorical")) {
+      shiny::updateSelectInput(
+        session,
+        "dictionary_column_id",
+        selected = target$column_id[[1]]
+      )
+      refresh_category_entry_choices(target$column_id[[1]])
     }
+    if (!is.na(target$formula[[1]]) && nzchar(target$formula[[1]])) {
+      shiny::updateSelectInput(
+        session,
+        "derived_column_to_edit",
+        selected = target$column_id[[1]]
+      )
+      load_formula_editor(target$column_id[[1]])
+    }
+
+    column_status(paste("Variable", shQuote(target$name[[1]]), "chargée pour modification."))
   })
 
   shiny::observeEvent(input$dictionary_column_id, refresh_category_entry_choices())

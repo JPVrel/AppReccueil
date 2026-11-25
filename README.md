@@ -6,7 +6,7 @@ Application Shiny locale destinée à accompagner le recueil de données d'un pr
 
 Cette première version établit le socle technique de l'application. Elle permet de démarrer localement un serveur Shiny depuis une boîte de dialogue, d'ouvrir l'application dans le navigateur par défaut et d'arrêter le serveur proprement.
 
-Le parcours Shiny actuel reste volontairement minimal. L'onglet « Colonnes de la BDD » permet de définir les champs, dictionnaires et calculs ; le formulaire de saisie des réponses sera ajouté ensuite.
+Le parcours Shiny actuel reste volontairement minimal : une vue centrale des observations et un onglet de gestion des champs, dictionnaires et calculs. Le formulaire de saisie des réponses sera ajouté ensuite.
 
 Cette étape prépare les évolutions suivantes : définir le formulaire de recueil, ajouter les règles de validation, enregistrer les observations, puis préparer l'utilisation par plusieurs personnes.
 
@@ -35,6 +35,7 @@ Cette étape prépare les évolutions suivantes : définir le formulaire de recu
 │   │   └── ui.R                  # Fenêtre Tcl/Tk
 │   ├── shiny/
 │   │   ├── app.R                 # Interface et logique Shiny
+│   │   ├── database_spreadsheet.R # Vue centrale DT, export et routage des en-têtes
 │   │   └── database_management.R # Tableaux et contrôles de gestion des variables
 │   ├── dependencies.R            # Détection et installation des packages
 │   └── load_modules.R             # Chargement récursif des modules R
@@ -44,6 +45,8 @@ Cette étape prépare les évolutions suivantes : définir le formulaire de recu
 │   └── database.yml               # Paramètres locaux ou distants à modifier
 ├── data/
 │   └── .gitkeep                   # Dossier de la base SQLite locale
+├── exports/
+│   └── .gitkeep                   # Copies CSV locales, non versionnées
 ├── shiny/
 │   ├── app.R                     # Application exécutée par le serveur local
 │   └── run_app.R                 # Runner du processus R indépendant
@@ -58,7 +61,7 @@ Depuis la racine du projet, dans R :
 source("scripts/install_dependencies.R")
 ```
 
-Le script installe les packages nécessaires à l'application (`shiny`, `DBI`, `RSQLite`, `yaml`) et au développement (`testthat`). Le lanceur propose également l'installation des dépendances d'exécution si elles sont absentes.
+Le script installe les packages nécessaires à l'application (`shiny`, `DT`, `DBI`, `RSQLite`, `yaml`) et au développement (`testthat`). Le lanceur propose également l'installation des dépendances d'exécution si elles sont absentes.
 
 ## Base de données
 
@@ -79,7 +82,11 @@ SQLite enregistre la base dans un fichier local. Le dossier parent est créé au
 
 Au démarrage, l'application crée les tables `app_metadata`, `collection_records`, `column_definitions` et `category_dictionary`. `collection_records` contient un identifiant, une date de création, un payload et les colonnes physiques définies par l'utilisateur. `column_definitions` conserve les types métier, noms logiques, formules et états masqués ; `category_dictionary` conserve les codes et libellés catégoriels. Les identifiants internes stables permettent aux formules et dictionnaires de suivre un champ même s'il est renommé ou masqué.
 
-L'onglet **Colonnes de la BDD** présente les champs actifs et masqués dans des tableaux indiquant leur nom, leur type, leur nature et, pour les variables dérivées, leur formule. Il permet :
+L'onglet **Base de données** présente les observations dans un tableur interactif (tri, recherche globale, filtres par colonne et pagination). Le bouton CSV télécharge l'instantané dans le navigateur et en archive une copie horodatée dans `exports/`. Le navigateur garde le contrôle de son propre dossier de téléchargement ; l'application ne peut pas imposer un chemin sur l'ordinateur client. Les variables dérivées sont calculées à la lecture. La colonne technique `payload` est exclue de cette vue et de l'export ; l'identifiant et la date restent visibles. Un double-clic sur un en-tête de variable ouvre l'onglet **Gestion des variables**, préselectionne le champ et charge son nom dans le formulaire de renommage ; pour un champ catégoriel ou dérivé, le dictionnaire ou la formule correspondante est aussi sélectionné. Les colonnes système ne sont pas modifiables depuis ce raccourci.
+
+Les archives CSV du dossier `exports/` sont ignorées par Git car elles peuvent contenir des données de recherche. Le dossier sert uniquement de copie côté serveur pour faciliter la reprise locale.
+
+L'onglet **Gestion des variables** présente les champs actifs et masqués dans des tableaux indiquant leur nom, leur type, leur nature et, pour les variables dérivées, leur formule. Il permet :
 
 - d'ajouter des champs texte, entiers, décimaux, dates et catégoriels ;
 - de renommer les champs personnalisés ; les valeurs existantes sont conservées ;
@@ -154,7 +161,7 @@ source("launcher.R")
 
 Elle permet de lancer le serveur Shiny, d'ouvrir `http://127.0.0.1:8000` dans le navigateur par défaut et d'arrêter proprement le serveur.
 
-Dans l'application, ouvrez l'onglet **Colonnes de la BDD** pour créer des champs, configurer leurs dictionnaires, définir des formules, les renommer, les masquer ou les restaurer.
+Dans l'application, utilisez **Base de données** pour consulter les observations, ou **Gestion des variables** pour créer des champs, configurer leurs dictionnaires, définir des formules, les renommer, les masquer ou les restaurer. Le double-clic sur un en-tête du tableur ouvre directement l'édition de la variable correspondante.
 
 Pour lancer directement l'application Shiny dans Positron, utilisez **Run App** sur `app.R`.
 
@@ -167,6 +174,10 @@ testthat::test_dir("tests/testthat")
 ```
 
 Les tests suivent une boucle de développement inspirée de l'Extreme Programming : écrire un test ciblé, implémenter le comportement minimal, exécuter toute la suite, puis refactorer sans changer le comportement attendu.
+
+Le journal des validations navigateur et les mesures de sécurisation à prévoir avant un déploiement partagé sont dans [docs/TESTS_AND_DATABASE_SECURITY.md](docs/TESTS_AND_DATABASE_SECURITY.md).
+
+Le journal des validations navigateur et les mesures de sécurisation à prévoir avant un déploiement partagé sont suivis dans [docs/TESTS_AND_DATABASE_SECURITY.md](docs/TESTS_AND_DATABASE_SECURITY.md).
 
 ## État actuel
 

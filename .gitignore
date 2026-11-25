@@ -1,5 +1,6 @@
 .DS_Store
 data/*.sqlite
+exports/*.csv
 .Rproj.user/
 .Rhistory
 .RData

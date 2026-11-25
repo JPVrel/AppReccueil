@@ -5,7 +5,9 @@ testthat::test_that("build_shiny_app returns a Shiny application", {
 testthat::test_that("the UI renders the database column-management tab", {
   ui_html <- htmltools::renderTags(build_app_ui())$html
 
-  testthat::expect_match(ui_html, "Colonnes de la BDD")
+  testthat::expect_match(ui_html, "Base de données")
+  testthat::expect_match(ui_html, "Gestion des variables")
+  testthat::expect_match(ui_html, "database_spreadsheet")
   testthat::expect_match(ui_html, "add_column")
   testthat::expect_match(ui_html, "rename_column")
   testthat::expect_match(ui_html, "active_variables_table")

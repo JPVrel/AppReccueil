@@ -199,3 +199,22 @@ testthat::test_that("the management UI handles types, dictionaries, formulas, an
     testthat::expect_true("cohort_2" %in% list_column_definitions(external_connection)$name)
   })
 })
+
+testthat::test_that("spreadsheet header events route editable fields and reject system columns", {
+  database_config <- list(
+    mode = "local",
+    local = list(path = tempfile(fileext = ".sqlite"))
+  )
+
+  shiny::testServer(build_app_server(database_config), {
+    external_connection <- DBI::dbConnect(RSQLite::SQLite(), database_config$local$path)
+    on.exit(DBI::dbDisconnect(external_connection), add = TRUE)
+    session$setInputs(new_column_name = "age", new_column_type = "integer", add_column = 1)
+
+    session$setInputs(database_spreadsheet_header_dblclick = "age")
+    testthat::expect_match(output$column_status, "age.*chargée pour modification")
+
+    session$setInputs(database_spreadsheet_header_dblclick = "id")
+    testthat::expect_match(output$column_status, "n'est pas une variable modifiable")
+  })
+})
