@@ -4,6 +4,18 @@ database_spreadsheet_data <- function(connection) {
   records[, setdiff(names(records), "payload"), drop = FALSE]
 }
 
+format_spreadsheet_dates <- function(connection, records) {
+  definitions <- list_column_definitions(connection, include_hidden = TRUE)
+  date_names <- definitions$name[
+    definitions$data_type == "date" & definitions$name %in% names(records)
+  ]
+  for (date_name in date_names) {
+    values <- records[[date_name]]
+    records[[date_name]] <- ifelse(is.na(values), NA_character_, format(as.Date(values), "%Y-%m-%d"))
+  }
+  records
+}
+
 neutralize_csv_formulas <- function(records) {
   character_columns <- names(records)[vapply(records, is.character, logical(1))]
 
@@ -301,6 +313,10 @@ database_spreadsheet_server <- function(input, output, connection, refresh_trigg
 
   output$database_spreadsheet <- shiny::renderTable({
     records <- spreadsheet_records()
+    current_connection <- if (is.function(connection)) connection() else connection
+    if (!is.null(current_connection)) {
+      records <- format_spreadsheet_dates(current_connection, records)
+    }
     records
   }, striped = TRUE, bordered = TRUE, hover = TRUE, rownames = FALSE)
 

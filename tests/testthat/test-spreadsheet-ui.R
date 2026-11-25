@@ -23,3 +23,17 @@ testthat::test_that("spreadsheet UI documents double-click header editing hook",
   testthat::expect_true(grepl("table.table().container()", callback, fixed = TRUE))
   testthat::expect_match(callback, "thead tr:first-child th")
 })
+
+testthat::test_that("spreadsheet date values are formatted as ISO strings", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "DDN", "date")
+
+  formatted <- format_spreadsheet_dates(
+    connection,
+    data.frame(DDN = as.Date(c("1993-07-05", NA)))
+  )
+
+  testthat::expect_identical(formatted$DDN, c("1993-07-05", NA_character_))
+})
