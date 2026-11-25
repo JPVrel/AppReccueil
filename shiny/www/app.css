@@ -104,8 +104,9 @@ h1, h2, h3, h4 {
 }
 
 .recueil-card {
-  height: 100%;
-  margin-bottom: 16px;
+  height: auto;
+  align-self: start;
+  margin-bottom: 0;
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -118,29 +119,41 @@ h1, h2, h3, h4 {
   margin-top: 0;
 }
 
-.recueil-card-muted {
-  background: var(--surface-muted);
-  box-shadow: none;
+.recueil-card h3 {
+  margin: 0 0 14px;
+  font-size: 18px;
+  line-height: 1.25;
 }
 
-.recueil-card [class*="action-button"] {
-  margin-right: 6px;
+.recueil-card h4 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.25;
 }
 
 .recueil-card hr,
 .recueil-card .hr {
-  margin: 16px -18px;
+  margin: 16px 0;
   border-top: 1px solid var(--border);
 }
 
+.recueil-card .form-group {
+  margin-bottom: 12px;
+}
+
 .recueil-card .form-group:last-child {
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .recueil-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
   gap: 16px;
+}
+
+.recueil-grid + .recueil-grid {
+  margin-top: 16px;
 }
 
 .recueil-span-12 { grid-column: span 12; }
@@ -149,7 +162,7 @@ h1, h2, h3, h4 {
 .recueil-span-4 { grid-column: span 4; }
 
 .recueil-status {
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   padding: 10px 12px;
   border-radius: 9px;
   background: var(--surface-muted);
@@ -266,6 +279,7 @@ h1, h2, h3, h4 {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  min-height: 38px;
 }
 
 .recueil-action-bar .btn {
@@ -307,6 +321,28 @@ h1, h2, h3, h4 {
   text-align: center;
 }
 
+.recueil-action-section {
+  padding: 12px 0 10px;
+  border-top: 1px solid var(--border);
+}
+
+.recueil-action-section:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.recueil-action-section h4 {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.recueil-action-section .form-group {
+  margin-bottom: 10px;
+}
+
 @media (max-width: 900px) {
   .container-fluid { padding: 12px; }
   .app-header { margin: -12px -12px 12px; }
@@ -340,7 +376,7 @@ select:focus-visible,
 }
 
 .recueil-card table {
-  margin: 8px 0 14px;
+  margin: 12px 0 0;
 }
 
 .recueil-card table:last-child {

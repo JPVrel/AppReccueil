@@ -21,12 +21,19 @@ database_management_ui <- function() {
       shiny::div(
         class = "recueil-card recueil-span-6",
         shiny::h3("Renommer ou masquer"),
-        shiny::selectInput("column_to_rename", "Variable à renommer", choices = character()),
-        shiny::textInput("renamed_column_name", "Nouvelle entête"),
-        shiny::div(class = "recueil-action-bar", shiny::actionButton("rename_column", "Renommer")),
-        shiny::tags$hr(),
-        shiny::selectInput("column_to_hide", "Variable à masquer", choices = character()),
-        shiny::div(class = "recueil-action-bar", shiny::actionButton("hide_column", "Masquer", class = "btn-warning"))
+        shiny::div(
+          class = "recueil-action-section",
+          shiny::h4("Renommer une variable"),
+          shiny::selectInput("column_to_rename", "Variable", choices = character()),
+          shiny::textInput("renamed_column_name", "Nouvelle entête"),
+          shiny::div(class = "recueil-action-bar", shiny::actionButton("rename_column", "Renommer"))
+        ),
+        shiny::div(
+          class = "recueil-action-section",
+          shiny::h4("Masquer une variable"),
+          shiny::selectInput("column_to_hide", "Variable", choices = character()),
+          shiny::div(class = "recueil-action-bar", shiny::actionButton("hide_column", "Masquer", class = "btn-warning"))
+        )
       ),
       shiny::div(
         class = "recueil-card recueil-span-6",
@@ -41,7 +48,6 @@ database_management_ui <- function() {
         shiny::actionButton("restore_column", "Restaurer la variable", class = "btn-primary")
       )
     ),
-    shiny::hr(),
     shiny::div(
       class = "recueil-grid",
       shiny::div(
