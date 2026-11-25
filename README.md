@@ -27,7 +27,7 @@ Le lanceur ouvre l'application dans le navigateur, normalement à l'adresse <htt
 - Gère les variables typées, catégories, formules dérivées et champs masqués.
 - Exporte en CSV, Excel ou RDS ; le chiffrement de chaque export est facultatif.
 
-Le formulaire interactif de collecte et la saisie manuelle des réponses ne sont pas encore implémentés.
+La saisie manuelle se fait dans l'onglet **Questionnaire**, avec les champs générés selon la structure de la base.
 
 ## Installation
 
@@ -60,11 +60,13 @@ Pour fusionner dans une base déjà ouverte, choisis une colonne identifiante un
 
 ### Consulter et gérer les données
 
-**Base de données** fournit le tableur central : tri, recherche, filtres, pagination et export CSV, Excel ou RDS. Le mot de passe d'export est facultatif ; sans lui, le fichier reste en clair. Avec lui (12 caractères minimum), le fichier est livré en `.enc` et archivé chiffré dans `exports/`.
+**Base de données** fournit le tableur central en lecture seule : tri, recherche, filtres, pagination et export CSV, Excel ou RDS. Un double-clic sur une ligne ouvre cette observation dans **Questionnaire** pour la modifier. Le questionnaire permet aussi de créer une observation et de choisir son ID.
+
+Une observation supprimée est masquée, pas effacée. L'onglet **Éléments supprimés** liste séparément les colonnes et observations masquées et permet de les restaurer. Si l'ID ou l'entête d'origine est déjà utilisé, renseigne un nouvel ID ou une nouvelle entête avant la restauration.
 
 **Gestion des variables** permet d'ajouter, renommer, masquer/restaurer des champs, gérer les catégories et construire des formules dérivées. Le double-clic sur un en-tête ouvre l'édition de la variable correspondante. Les champs masqués restent stockés ; ils ne sont pas supprimés.
 
-Les dates sont au format `YYYY-MM-DD`. Les formules sont structurées et ne sont pas exécutées comme du code R libre. Les colonnes techniques `id`, `created_at` et `payload` ne sont pas éditables ; `payload` est exclu de la vue et des exports.
+Les dates sont au format `YYYY-MM-DD`. Les formules sont structurées et ne sont pas exécutées comme du code R libre. Les colonnes techniques `id`, `created_at`, `payload` et `is_deleted` ne sont pas éditables ; `payload` et `is_deleted` sont exclus des vues et exports.
 
 ## Données et protection
 
@@ -110,4 +112,4 @@ Le journal des validations adversariales et les limites connues sont consignés 
 
 ## État du projet
 
-Le schéma, la gestion des variables, l'import et la fusion de données sont expérimentaux. La saisie manuelle des réponses et le formulaire de recueil restent à développer. Ce dépôt n'est pas un produit validé pour un déploiement ou un usage clinique/de recherche en production.
+Le schéma, la gestion des variables, l'import, la fusion, le questionnaire et la suppression/restauration sont expérimentaux. Ce dépôt n'est pas un produit validé pour un déploiement ou un usage clinique/de recherche en production.

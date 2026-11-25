@@ -474,7 +474,7 @@ update_imported_value <- function(connection, record_id, field_name, value, defi
   }
 
   if (inherits(value, "Date")) {
-    value <- format(value, "%Y-%m-%d")
+    value <- as.numeric(value)
   }
   table_sql <- as.character(DBI::dbQuoteIdentifier(connection, record_table_name()))
   field_sql <- as.character(DBI::dbQuoteIdentifier(connection, definition$sql_name[[1]]))

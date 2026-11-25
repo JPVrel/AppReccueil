@@ -240,6 +240,10 @@ spreadsheet_header_callback <- function() {
     "  var columnIndex = $(this).index();",
     "  var headerName = table.column(columnIndex).header().textContent.trim();",
     "  if (headerName) Shiny.setInputValue('database_spreadsheet_header_dblclick', headerName, { priority: 'event' });",
+    "});",
+    "$(container).on('dblclick', 'tbody tr', function() {",
+    "  var rowData = table.row(this).data();",
+    "  if (rowData && rowData[0]) Shiny.setInputValue('database_spreadsheet_row_dblclick', rowData[0], { priority: 'event' });",
     "});"
   )
 }

@@ -405,3 +405,76 @@ testthat::test_that("conflict decisions cannot be applied after switching databa
   on.exit(close_database_vault(other), add = TRUE)
   testthat::expect_equal(nrow(read_collection_records(other$connection)), 0L)
 })
+
+testthat::test_that("the questionnaire creates, edits from row double-click, and masks records", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "participant_code", "text")
+  add_typed_column(connection, "age", "integer")
+  refresh_trigger <- shiny::reactiveVal(0L)
+
+  shiny::testServer(function(input, output, session) {
+    record_entry_server(input, output, session, connection, refresh_trigger)
+  }, {
+    form_html <- htmltools::renderTags(output$record_questionnaire_fields)$html
+    testthat::expect_match(form_html, "record_field__participant_code")
+    testthat::expect_match(form_html, "record_field__age")
+
+    session$setInputs(
+      record_id_value = "row-questionnaire",
+      record_field__participant_code = "P001",
+      record_field__age = "34",
+      save_record = 1
+    )
+    testthat::expect_true(collection_record_exists(connection, "row-questionnaire"))
+
+    session$setInputs(database_spreadsheet_row_dblclick = "row-questionnaire")
+    testthat::expect_match(output$record_entry_status, "chargée pour modification")
+    session$setInputs(
+      record_id_value = "row-edited",
+      record_field__participant_code = "P002",
+      record_field__age = "35",
+      save_record = 2
+    )
+    testthat::expect_false(collection_record_exists(connection, "row-questionnaire"))
+    testthat::expect_equal(read_collection_records(connection)$participant_code, "P002")
+
+    session$setInputs(mask_record = 1)
+    testthat::expect_equal(list_deleted_collection_records(connection)$id, "row-edited")
+    testthat::expect_equal(nrow(read_collection_records(connection)), 0L)
+  })
+})
+
+testthat::test_that("deleted-item controls restore records and columns under replacement names", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "participant_code", "text")
+  age_id <- add_typed_column(connection, "age", "integer")
+  insert_collection_record(connection, list(participant_code = "P001", age = "34"), "row-hidden")
+  mask_collection_record(connection, "row-hidden")
+  hide_column(connection, age_id)
+  add_typed_column(connection, "age", "integer")
+  refresh_trigger <- shiny::reactiveVal(0L)
+
+  shiny::testServer(function(input, output, session) {
+    deleted_items_server(input, output, session, connection, refresh_trigger)
+  }, {
+    session$setInputs(
+      deleted_record_id = "row-hidden",
+      deleted_record_new_id = "row-restored",
+      restore_deleted_record = 1
+    )
+    testthat::expect_true("row-restored" %in% read_collection_records(connection)$id)
+
+    session$setInputs(
+      deleted_column_id = age_id,
+      deleted_column_new_name = "age_restored",
+      restore_deleted_column = 1
+    )
+    active_columns <- list_column_definitions(connection)
+    testthat::expect_true("age_restored" %in% active_columns$name)
+    testthat::expect_true(collection_record_exists(connection, "row-restored"))
+  })
+})

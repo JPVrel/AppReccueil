@@ -6,8 +6,10 @@ build_app_ui <- function() {
     shiny::tabsetPanel(
       id = "application_tabs",
       database_home_ui(),
+      record_entry_ui(),
       database_spreadsheet_ui(),
-      database_management_ui()
+      database_management_ui(),
+      deleted_items_ui()
     )
   )
 }
@@ -90,9 +92,17 @@ build_app_server <- function(database_config = NULL, export_dir = NULL) {
 
     database_spreadsheet_server(input, output, connection, database_refresh)
     database_management_server(input, output, session, connection, database_refresh)
+    record_entry_server(input, output, session, connection, database_refresh)
+    deleted_items_server(input, output, session, connection, database_refresh)
     session$onFlushed(function() {
       for (output_id in c(
         "database_spreadsheet",
+        "record_questionnaire_fields",
+        "record_form_actions",
+        "record_entry_status",
+        "deleted_columns_table",
+        "deleted_records_table",
+        "deleted_items_status",
         "active_variables_table",
         "archived_variables_table",
         "category_entries",

@@ -1,6 +1,6 @@
 testthat::test_that("column schema helpers declare the table, protected columns, and types", {
   testthat::expect_equal(record_table_name(), "collection_records")
-  testthat::expect_equal(protected_record_columns(), c("id", "created_at", "payload"))
+  testthat::expect_equal(protected_record_columns(), c("id", "created_at", "payload", "is_deleted"))
   testthat::expect_equal(
     allowed_record_column_types(),
     c("TEXT", "INTEGER", "REAL", "NUMERIC", "DATE", "BOOLEAN")
@@ -22,7 +22,7 @@ testthat::test_that("list_record_columns returns the existing SQL columns", {
 
   testthat::expect_equal(
     list_record_columns(connection),
-    c("id", "created_at", "payload")
+    c("id", "created_at", "payload", "is_deleted")
   )
 })
 
@@ -45,7 +45,7 @@ testthat::test_that("add_record_column supports every allowed SQL type", {
     add_record_column(connection, paste0("field_", tolower(type)), type)
   }
 
-  testthat::expect_length(list_record_columns(connection), 3 + length(allowed_record_column_types()))
+  testthat::expect_length(list_record_columns(connection), 4 + length(allowed_record_column_types()))
 })
 
 testthat::test_that("stored columns cannot reuse a derived variable name", {

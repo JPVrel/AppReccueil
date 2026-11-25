@@ -98,13 +98,24 @@ next_restored_column_name <- function(connection, column_id, original_name) {
   }
 }
 
-restore_column <- function(connection, column_id) {
+restore_column <- function(connection, column_id, new_name = NULL) {
   definition <- get_column_definition(connection, column_id)
   if (!isTRUE(definition$is_hidden[[1]])) {
     stop("La colonne n'est pas masquée.")
   }
 
-  restored_name <- next_restored_column_name(connection, column_id, definition$name[[1]])
+  restored_name <- if (is.null(new_name) || !nzchar(new_name)) {
+    next_restored_column_name(connection, column_id, definition$name[[1]])
+  } else {
+    validate_record_column_name(new_name)
+    current_definition <- get_column_definition(connection, column_id)
+    active <- list_column_definitions(connection)
+    physical_names <- setdiff(list_record_columns(connection), current_definition$sql_name)
+    if (tolower(new_name) %in% tolower(c(protected_record_columns(), active$name, physical_names))) {
+      stop("Ce nom de colonne est déjà utilisé. Choisis une autre entête.")
+    }
+    new_name
+  }
   sql_name <- definition$sql_name[[1]]
 
   DBI::dbWithTransaction(connection, {

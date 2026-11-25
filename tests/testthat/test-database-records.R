@@ -113,3 +113,99 @@ testthat::test_that("read_collection_records returns active column names for an 
   testthat::expect_equal(nrow(records), 0L)
   testthat::expect_true(all(c("id", "created_at", "payload", "visit_date") %in% names(records)))
 })
+
+testthat::test_that("questionnaire records can be created, updated, masked, and restored", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "participant_code", "text")
+  add_typed_column(connection, "age", "integer")
+  add_typed_column(connection, "visit_date", "date")
+  category_id <- add_typed_column(connection, "group", "categorical")
+  add_category_entry(connection, category_id, "control", "Control")
+
+  record_id <- insert_collection_record(connection, list(
+    participant_code = "P001",
+    age = "34",
+    visit_date = "2026-11-25",
+    group = "control"
+  ))
+  testthat::expect_match(record_id, "^row_")
+  record <- read_collection_records(connection)
+  testthat::expect_equal(nrow(record), 1L)
+  testthat::expect_equal(record$age, 34L)
+  testthat::expect_identical(record$visit_date, as.Date("2026-11-25"))
+
+  testthat::expect_error(
+    insert_collection_record(connection, list(
+      participant_code = "P002",
+      age = "35",
+      visit_date = "2026-11-25",
+      group = "not-in-dictionary"
+    ), "row-other"),
+    "ne figure pas dans son dictionnaire"
+  )
+  testthat::expect_error(
+    insert_collection_record(connection, list(
+      participant_code = "P002",
+      age = "35",
+      visit_date = "2026-11-25",
+      group = "control"
+    ), record_id),
+    "ID existe déjà"
+  )
+
+  update_collection_record(connection, record_id, "row-renamed", list(
+    participant_code = "P001",
+    age = "36",
+    visit_date = "2026-11-25",
+    group = "control"
+  ))
+  testthat::expect_equal(read_collection_records(connection)$age, 36L)
+  testthat::expect_error(
+    update_collection_record(connection, "row-renamed", "bad/id", list(
+      participant_code = "P001", age = "36", visit_date = "2026-11-25", group = "control"
+    )),
+    "L'ID doit"
+  )
+
+  mask_collection_record(connection, "row-renamed")
+  second_id <- insert_collection_record(connection, list(
+    participant_code = "P002",
+    age = "28",
+    visit_date = "2026-11-25",
+    group = "control"
+  ), "row-second")
+  testthat::expect_equal(nrow(read_collection_records(connection)), 1L)
+  deleted <- list_deleted_collection_records(connection)
+  testthat::expect_equal(deleted$id, "row-renamed")
+  testthat::expect_error(update_collection_record(connection, "row-renamed", "row-renamed", list(
+    participant_code = "P001", age = "37", visit_date = "2026-11-25", group = "control"
+  )), "masquée")
+  testthat::expect_error(
+    restore_collection_record(connection, "row-renamed", second_id),
+    "ID existe déjà"
+  )
+  restore_collection_record(connection, "row-renamed", "row-restored")
+  testthat::expect_true("row-restored" %in% read_collection_records(connection)$id)
+  testthat::expect_true("row-second" %in% read_collection_records(connection)$id)
+})
+
+testthat::test_that("database initialization adds the soft-delete marker to an old schema", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  DBI::dbExecute(
+    connection,
+    "CREATE TABLE collection_records (id VARCHAR(36) PRIMARY KEY, created_at TIMESTAMP NOT NULL, payload TEXT NOT NULL)"
+  )
+  DBI::dbExecute(
+    connection,
+    "INSERT INTO collection_records (id, created_at, payload) VALUES ('old-row', CURRENT_TIMESTAMP, '{}')"
+  )
+
+  initialize_database(connection)
+
+  testthat::expect_true("is_deleted" %in% list_record_columns(connection))
+  testthat::expect_equal(read_collection_records(connection)$id, "old-row")
+  testthat::expect_equal(list_deleted_collection_records(connection), read_collection_records(connection)[0, ])
+})

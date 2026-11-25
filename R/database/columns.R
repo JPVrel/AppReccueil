@@ -4,7 +4,7 @@ record_table_name <- function() {
 }
 
 protected_record_columns <- function() {
-  c("id", "created_at", "payload")
+  c("id", "created_at", "payload", "is_deleted")
 }
 
 allowed_record_column_types <- function() {

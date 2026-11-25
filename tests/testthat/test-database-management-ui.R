@@ -193,11 +193,16 @@ testthat::test_that("the management UI handles types, dictionaries, formulas, an
 
     session$setInputs(column_to_hide = "cohort", hide_column = 1)
     testthat::expect_match(output$column_status, "Colonne masquée")
+    testthat::expect_true(
+      list_column_definitions(external_connection, include_hidden = TRUE)$is_hidden[
+        list_column_definitions(external_connection, include_hidden = TRUE)$name == "cohort"
+      ]
+    )
     testthat::expect_no_error(session$setInputs(dictionary_column_id = character()))
     session$setInputs(new_column_name = "cohort", new_column_type = "categorical", add_column = 5)
-    session$setInputs(column_to_restore = cohort_id, restore_column = 1)
-    testthat::expect_match(output$column_status, "cohort_2")
-    testthat::expect_true("cohort_2" %in% list_column_definitions(external_connection)$name)
+    testthat::expect_error(restore_column(external_connection, cohort_id, "cohort"), "déjà utilisé")
+    testthat::expect_equal(restore_column(external_connection, cohort_id, "cohort_restored"), "cohort_restored")
+    testthat::expect_true("cohort_restored" %in% list_column_definitions(external_connection)$name)
   })
 })
 
