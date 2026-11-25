@@ -116,3 +116,12 @@ testthat::test_that("dictionary operations are blocked for hidden or non-categor
   hide_column(connection, category_id)
   testthat::expect_error(update_category_entry(connection, entry_id, "reference", "Reference"), "masquée")
 })
+
+testthat::test_that("category text has an explicit length limit", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  category_id <- add_typed_column(connection, "cohort", "categorical")
+
+  testthat::expect_error(add_category_entry(connection, category_id, strrep("A", 256), "Label"), "255 caractères")
+})

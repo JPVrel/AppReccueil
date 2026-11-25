@@ -30,6 +30,9 @@ validate_category_text <- function(value, field_name) {
   if (length(value) != 1L || is.na(value) || !nzchar(trimws(value))) {
     stop("Le code et le libellé sont obligatoires.")
   }
+  if (nchar(value, type = "chars") > 255L) {
+    stop("Le code ou le libellé est trop long : 255 caractères maximum.")
+  }
 
   invisible(value)
 }

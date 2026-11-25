@@ -118,3 +118,11 @@ testthat::test_dir("tests/testthat")
 - Double-clic sur une variable catégorielle ou dérivée : dictionnaire ou formule correspondante chargés.
 - Double-clic sur une colonne technique, en-tête inconnu ou champ masqué : aucune édition, message clair.
 - Après ajout, renommage, masquage ou changement de catégorie : tableur rafraîchi et valeurs cohérentes.
+
+## Résultat du parcours utilisateur hostile
+
+- Sécurisé par rejet : SQL/HTML littéral n'est pas exécuté ; séparateurs de chemin, noms invalides, ID trop longs, valeurs entières hors plage, dates impossibles, noms de colonnes longs, réponses longues et catégories longues sont refusés.
+- Sécurisé par traitement littéral : HTML, SQL ressemblant, apostrophes, Unicode et valeurs commençant par `=`, `+`, `-` ou `@` restent des données sans interprétation comme code ou formule ; les exports CSV neutralisent les cellules formule.
+- Cas débile mais impossible : octet NUL et caractères de contrôle non représentables dans R/SQLite sont rejetés ou ne peuvent pas être transmis comme chaîne valide.
+- Cas possible mais interdit : texte >10 000 caractères par réponse, entête >64 caractères, catégorie >255 caractères et années hors 1000–9999. Des messages explicites expliquent les limites.
+- Limite assumée : aucune authentification ni rôles dans l'application locale. Elle ne doit pas être exposée comme application multi-utilisateur sur Internet sans TLS, autorisations serveur et journal d'audit.

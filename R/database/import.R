@@ -245,12 +245,28 @@ convert_import_column <- function(values, data_type, field_name = "colonne") {
   if (length(data_type) != 1L || is.na(data_type) || !data_type %in% column_definition_types()) {
     stop("Type non pris en charge pour ", field_name, ".")
   }
+
+  if (data_type %in% c("text", "categorical") && is.character(values)) {
+    control_chars <- vapply(values, function(value) {
+      if (is.na(value)) return(FALSE)
+      grepl("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]", value, perl = TRUE)
+    }, logical(1))
+    if (any(control_chars)) {
+      stop("La colonne ", field_name, " contient des caractères de contrôle impossibles à saisir.")
+    }
+  }
+
   values <- clean_import_values(values)
   missing <- is.na(values)
   text <- as.character(values)
   text[missing] <- NA_character_
 
   if (data_type %in% c("text", "categorical")) {
+    if (is.character(text)) {
+      if (any(!is.na(text) & nchar(text, type = "chars") > 10000L)) {
+        stop("La colonne ", field_name, " dépasse la limite de 10 000 caractères par réponse.")
+      }
+    }
     return(text)
   }
   if (identical(data_type, "date")) {
@@ -259,7 +275,7 @@ convert_import_column <- function(values, data_type, field_name = "colonne") {
     }
     parsed <- as.Date(text, format = "%Y-%m-%d")
     if (any(!missing & is.na(parsed))) {
-      stop("La colonne ", field_name, " contient une date qui n'est pas au format AAAA-MM-JJ.")
+      stop("La colonne ", field_name, " contient une date qui n'est pas au format YYYY-MM-DD.")
     }
     return(parsed)
   }

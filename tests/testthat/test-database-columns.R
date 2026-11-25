@@ -132,3 +132,11 @@ testthat::test_that("rename_record_column rejects missing, duplicate, or invalid
   testthat::expect_error(rename_record_column(connection, "age", "id"), "existe déjà")
   testthat::expect_error(rename_record_column(connection, "age", "invalid-name"), "commencer par une lettre")
 })
+
+testthat::test_that("physical column names have an explicit length limit", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+
+  testthat::expect_error(add_typed_column(connection, strrep("A", 65), "text"), "64 caractères")
+})

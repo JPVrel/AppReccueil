@@ -22,3 +22,10 @@ testthat::test_that("validate_date_value rejects invalid and ambiguous dates", {
   testthat::expect_error(validate_date_value("01/02/2024"), "YYYY-MM-DD")
   testthat::expect_error(validate_date_value(c("2024-01-01", "2024-01-02")), "Une seule date")
 })
+
+testthat::test_that("date validation bounds year to supported calendar range", {
+  testthat::expect_s3_class(validate_date_value("1000-01-01"), "Date")
+  testthat::expect_s3_class(validate_date_value("9999-12-31"), "Date")
+  testthat::expect_error(validate_date_value("0999-12-31"), "année doit")
+  testthat::expect_error(validate_date_value("10000-01-01"), "format YYYY-MM-DD")
+})

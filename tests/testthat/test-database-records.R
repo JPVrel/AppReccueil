@@ -209,3 +209,15 @@ testthat::test_that("database initialization adds the soft-delete marker to an o
   testthat::expect_equal(read_collection_records(connection)$id, "old-row")
   testthat::expect_equal(list_deleted_collection_records(connection), read_collection_records(connection)[0, ])
 })
+
+testthat::test_that("questionnaire rejects impossible text and date edge cases", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "note", "text")
+
+  testthat::expect_error(
+    insert_collection_record(connection, list(note = strrep("A", 10001)), "row-long"),
+    "10 000 caractères"
+  )
+})
