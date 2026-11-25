@@ -210,3 +210,29 @@ testthat::test_that("derived formulas reject missing sources and incompatible op
     result_type = "integer"
   )), "résultat entier")
 })
+
+testthat::test_that("date formulas calculate complete months and years", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  start_id <- add_typed_column(connection, "start_date", "date")
+  end_id <- add_typed_column(connection, "end_date", "date")
+
+  add_derived_column(connection, "months_elapsed", list(
+    mode = "binary", left_id = start_id, operator = "months_between", right_id = end_id
+  ))
+  add_derived_column(connection, "years_elapsed", list(
+    mode = "binary", left_id = start_id, operator = "years_between", right_id = end_id
+  ))
+
+  calculated <- calculate_derived_columns(
+    data.frame(
+      start_date = as.Date(c("2024-02-28", "2024-02-29", "2024-05-31", "2024-05-31", NA)),
+      end_date = as.Date(c("2024-04-27", "2024-03-28", "2022-05-30", "2026-05-31", "2024-01-01"))
+    ),
+    list_column_definitions(connection)
+  )
+
+  testthat::expect_equal(calculated$months_elapsed, c(1L, 0L, -24L, 24L, NA_integer_))
+  testthat::expect_equal(calculated$years_elapsed, c(0L, 0L, -2L, 2L, NA_integer_))
+})

@@ -2,7 +2,7 @@
 # aucun texte fourni par l'utilisateur n'est évalué comme du code R.
 formula_binary_operators <- function() {
   c(
-    "add", "subtract", "multiply", "divide", "days_between",
+    "add", "subtract", "multiply", "divide", "days_between", "months_between", "years_between",
     "equal", "not_equal", "greater_than", "greater_or_equal",
     "less_than", "less_or_equal"
   )
@@ -90,11 +90,15 @@ validate_formula_definition <- function(connection, formula) {
       if (!identical(left_type, "date") || !identical(right_type, "date")) {
         stop("Le calcul en jours nécessite deux colonnes de dates.")
       }
+    } else if (formula$operator %in% c("months_between", "years_between")) {
+      if (!identical(left_type, "date") || !identical(right_type, "date")) {
+        stop("Le calcul en mois ou années nécessite deux colonnes de dates.")
+      }
     } else {
       validate_comparison_types(left_type, right_type, formula$operator)
     }
 
-    return(list(formula = formula, result_type = if (formula$operator %in% formula_comparison_operators()) "boolean" else if (formula$operator == "days_between") "integer" else "real"))
+    return(list(formula = formula, result_type = if (formula$operator %in% formula_comparison_operators()) "boolean" else if (formula$operator %in% c("days_between", "months_between", "years_between")) "integer" else "real"))
   }
 
   if (length(formula$operator) != 1L || !formula$operator %in% formula_comparison_operators()) {
@@ -306,6 +310,38 @@ calculate_formula <- function(formula, left, right, result_type) {
     return(as.integer(as.Date(right) - as.Date(left)))
   }
 
+  if (operator %in% c("months_between", "years_between")) {
+    left <- as.Date(left)
+    right <- as.Date(right)
+    missing <- is.na(left) | is.na(right)
+
+    left_year <- as.integer(format(left, "%Y"))
+    right_year <- as.integer(format(right, "%Y"))
+    left_month <- as.integer(format(left, "%m"))
+    right_month <- as.integer(format(right, "%m"))
+    left_day <- as.integer(format(left, "%d"))
+    right_day <- as.integer(format(right, "%d"))
+
+    months <- (right_year - left_year) * 12L + (right_month - left_month)
+    adjust_positive <- !missing & months > 0L & right_day < left_day
+    adjust_negative <- !missing & months < 0L & right_day > left_day
+    months[adjust_positive] <- months[adjust_positive] - 1L
+    months[adjust_negative] <- months[adjust_negative] + 1L
+
+    if (identical(operator, "years_between")) {
+      years <- integer(length(months))
+      positive <- !missing & months >= 0L
+      negative <- !missing & months < 0L
+      years[positive] <- months[positive] %/% 12L
+      years[negative] <- -((-months[negative]) %/% 12L)
+      years[missing] <- NA_integer_
+      return(as.integer(years))
+    }
+
+    months[missing] <- NA_integer_
+    return(as.integer(months))
+  }
+
   compare_formula_values(left, operator, right)
 }
 
@@ -374,10 +410,14 @@ validate_formula_definition_from_types <- function(formula, definitions) {
         (!identical(left_type, "date") || !identical(right_type, "date"))) {
       stop("Le calcul en jours nécessite deux colonnes de dates.")
     }
+    if (operator %in% c("months_between", "years_between") &&
+        (!identical(left_type, "date") || !identical(right_type, "date"))) {
+      stop("Le calcul en jours, mois ou années nécessite deux colonnes de dates.")
+    }
     if (operator %in% formula_comparison_operators()) {
       validate_comparison_types(left_type, right_type, operator)
     }
-    result_type <- if (operator %in% formula_comparison_operators()) "boolean" else if (operator == "days_between") "integer" else "real"
+    result_type <- if (operator %in% formula_comparison_operators()) "boolean" else if (operator %in% c("days_between", "months_between", "years_between")) "integer" else "real"
   } else {
     validate_comparison_types(left_type, right_type, operator)
     result_type <- formula$result_type
