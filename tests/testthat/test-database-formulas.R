@@ -19,6 +19,24 @@ testthat::test_that("binary numeric formulas recalculate from source columns", {
   testthat::expect_equal(calculated$bmi_numerator, c(8, 15))
 })
 
+testthat::test_that("integer source arithmetic is promoted before overflow", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  left_id <- add_typed_column(connection, "left_value", "integer")
+  right_id <- add_typed_column(connection, "right_value", "integer")
+  add_derived_column(connection, "sum_value", list(
+    mode = "binary", left_id = left_id, operator = "add", right_id = right_id
+  ))
+
+  calculated <- calculate_derived_columns(
+    data.frame(left_value = 2000000000L, right_value = 2000000000L),
+    list_column_definitions(connection)
+  )
+
+  testthat::expect_equal(calculated$sum_value, 4000000000)
+})
+
 testthat::test_that("missing inputs and division by zero produce missing results", {
   connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
   on.exit(DBI::dbDisconnect(connection), add = TRUE)

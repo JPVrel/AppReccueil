@@ -95,6 +95,8 @@ Les variables dérivées sont des colonnes virtuelles : leur formule est conserv
 
 Les nouveaux champs sont nullable, ce qui permet de les ajouter même si la table contient déjà des lignes. Le formulaire de collecte et l'écriture des réponses ne sont pas encore implémentés. En mode local, tous les utilisateurs peuvent gérer le schéma ; avant un déploiement partagé, il faudra ajouter l'authentification et des droits d'administration.
 
+La création d'un champ et de ses métadonnées est transactionnelle : en cas d'échec du catalogue, la colonne SQL est annulée aussi. Les opérations arithmétiques sur des champs entiers sont promues en décimal avant calcul afin d'éviter les débordements des entiers R.
+
 ### Mode distant : PostgreSQL
 
 Pour une base hébergée, créez d'abord une base PostgreSQL auprès d'un fournisseur de votre choix. Récupérez son hôte, son port, le nom de la base et les exigences TLS/SSL. Dans `config/database.yml`, remplacez la configuration locale par un bloc distant comme celui-ci :

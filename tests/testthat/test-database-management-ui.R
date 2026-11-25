@@ -4,6 +4,14 @@ testthat::test_that("database management display helpers handle empty and popula
   testthat::expect_equal(nrow(column_table_data(empty_column_definitions())), 0L)
 })
 
+testthat::test_that("initialization can read reactive state outside a consumer", {
+  state <- shiny::reactiveVal("ready")
+  input <- shiny::reactiveValues(dictionary_column_id = "cohort-id")
+
+  testthat::expect_equal(read_reactive_state(state), "ready")
+  testthat::expect_equal(read_shiny_input(input, "dictionary_column_id"), "cohort-id")
+})
+
 testthat::test_that("the variable table describes stored, categorical, date, and derived fields", {
   formula <- yaml::as.yaml(list(
     mode = "binary",

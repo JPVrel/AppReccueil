@@ -286,6 +286,8 @@ calculate_formula <- function(formula, left, right, result_type) {
 
   operator <- formula$operator
   if (operator %in% c("add", "subtract", "multiply", "divide")) {
+    left <- as.numeric(left)
+    right <- as.numeric(right)
     result <- switch(
       operator,
       add = left + right,
@@ -295,7 +297,7 @@ calculate_formula <- function(formula, left, right, result_type) {
     )
     result[is.na(left) | is.na(right)] <- NA_real_
     if (operator == "divide") {
-      result[right == 0] <- NA_real_
+      result[!is.na(right) & right == 0] <- NA_real_
     }
     return(result)
   }

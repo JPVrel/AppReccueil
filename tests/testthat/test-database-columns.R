@@ -48,6 +48,20 @@ testthat::test_that("add_record_column supports every allowed SQL type", {
   testthat::expect_length(list_record_columns(connection), 3 + length(allowed_record_column_types()))
 })
 
+testthat::test_that("stored columns cannot reuse a derived variable name", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  left_id <- add_typed_column(connection, "left_value", "integer")
+  right_id <- add_typed_column(connection, "right_value", "integer")
+  add_derived_column(connection, "combined_value", list(
+    mode = "binary", left_id = left_id, operator = "add", right_id = right_id
+  ))
+
+  testthat::expect_error(add_typed_column(connection, "combined_value", "integer"), "existe déjà")
+  testthat::expect_false("combined_value" %in% list_record_columns(connection))
+})
+
 testthat::test_that("add_record_column rejects unsafe or unsupported definitions", {
   connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
   on.exit(DBI::dbDisconnect(connection), add = TRUE)
@@ -61,6 +75,16 @@ testthat::test_that("add_record_column rejects unsafe or unsupported definitions
   testthat::expect_error(add_record_column(connection, "id", "TEXT"), "existe déjà")
   add_record_column(connection, "Age", "INTEGER")
   testthat::expect_error(add_record_column(connection, "age", "INTEGER"), "existe déjà")
+})
+
+testthat::test_that("failed catalog registration rolls back the physical column", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  register_column_definition(connection, "legacy", "orphan_name", "text")
+
+  testthat::expect_error(add_record_column(connection, "orphan_name", "TEXT"))
+  testthat::expect_false("orphan_name" %in% list_record_columns(connection))
 })
 
 testthat::test_that("rename_record_column preserves existing values", {

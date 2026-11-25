@@ -201,6 +201,17 @@ category_table_data <- function(categories) {
   )
 }
 
+# Les fonctions appelées pendant l'initialisation n'ont pas toujours de contexte
+# réactif actif ; isolate permet de lire leur état sans enregistrer de dépendance.
+read_reactive_state <- function(state) {
+  shiny::isolate(state())
+}
+
+# Même règle pour les valeurs input consultées pendant le rafraîchissement initial.
+read_shiny_input <- function(input, input_name) {
+  shiny::isolate(input[[input_name]])
+}
+
 formula_editor_values <- function(connection, column_id) {
   formula <- read_derived_formula(connection, column_id)
   list(
@@ -218,28 +229,13 @@ database_management_server <- function(input, output, session, connection) {
   definitions <- shiny::reactiveVal(empty_column_definitions())
   column_status <- shiny::reactiveVal("")
 
-  refresh_category_choices <- function() {
-    current_definitions <- definitions()
+  refresh_category_entry_choices <- function(selected_column = input$dictionary_column_id) {
+    current_definitions <- read_reactive_state(definitions)
     categorical <- current_definitions[
       current_definitions$data_type == "categorical" & !current_definitions$is_hidden,
       ,
       drop = FALSE
     ]
-    category_choices <- select_choices(categorical$column_id, categorical$name)
-    selected_column <- input$dictionary_column_id
-    has_selected_column <- length(selected_column) == 1L &&
-      !is.na(selected_column) &&
-      selected_column %in% categorical$column_id
-    if (!has_selected_column) {
-      selected_column <- if (length(categorical$column_id) > 0L) categorical$column_id[[1]] else character()
-    }
-    shiny::updateSelectInput(
-      session,
-      "dictionary_column_id",
-      choices = category_choices,
-      selected = selected_column
-    )
-
     if (length(selected_column) == 1L && !is.na(selected_column) &&
       selected_column %in% categorical$column_id) {
       categories <- list_category_entries(connection, selected_column)
@@ -255,6 +251,31 @@ database_management_server <- function(input, output, session, connection) {
       shiny::updateSelectInput(session, "category_to_remove", choices = character())
       shiny::updateSelectInput(session, "replacement_category", choices = character())
     }
+  }
+
+  refresh_category_column_choices <- function() {
+    current_definitions <- read_reactive_state(definitions)
+    categorical <- current_definitions[
+      current_definitions$data_type == "categorical" & !current_definitions$is_hidden,
+      ,
+      drop = FALSE
+    ]
+    choices <- select_choices(categorical$column_id, categorical$name)
+    selected_column <- read_shiny_input(input, "dictionary_column_id")
+    has_selected_column <- length(selected_column) == 1L &&
+      !is.na(selected_column) &&
+      selected_column %in% categorical$column_id
+    if (!has_selected_column) {
+      selected_column <- if (length(categorical$column_id) > 0L) categorical$column_id[[1]] else character()
+    }
+
+    shiny::updateSelectInput(
+      session,
+      "dictionary_column_id",
+      choices = choices,
+      selected = selected_column
+    )
+    refresh_category_entry_choices(selected_column)
   }
 
   refresh_controls <- function() {
@@ -285,11 +306,11 @@ database_management_server <- function(input, output, session, connection) {
     shiny::updateSelectInput(session, "formula_left_id", choices = all_choices)
     shiny::updateSelectInput(session, "formula_right_id", choices = all_choices)
     shiny::updateSelectInput(session, "derived_column_to_edit", choices = derived_choices)
-    refresh_category_choices()
+    refresh_category_column_choices()
   }
 
   current_column_id <- function(name) {
-    current_definitions <- definitions()
+    current_definitions <- read_reactive_state(definitions)
     selected <- current_definitions[
       !current_definitions$is_hidden & current_definitions$name == name,
       ,
@@ -462,5 +483,5 @@ database_management_server <- function(input, output, session, connection) {
     }
   })
 
-  shiny::observeEvent(input$dictionary_column_id, refresh_category_choices())
+  shiny::observeEvent(input$dictionary_column_id, refresh_category_entry_choices())
 }

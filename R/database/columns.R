@@ -23,7 +23,7 @@ list_record_columns <- function(connection) {
   DBI::dbListFields(connection, record_table_name())
 }
 
-add_record_column <- function(connection, name, type) {
+create_record_column <- function(connection, name, type) {
   validate_record_column_name(name)
   type <- toupper(type)
 
@@ -32,7 +32,8 @@ add_record_column <- function(connection, name, type) {
   }
 
   existing_columns <- list_record_columns(connection)
-  if (tolower(name) %in% tolower(existing_columns)) {
+  active_definition_names <- list_column_definitions(connection)$name
+  if (tolower(name) %in% tolower(c(existing_columns, active_definition_names))) {
     stop("Une colonne portant ce nom existe déjà.")
   }
 
@@ -53,6 +54,12 @@ add_record_column <- function(connection, name, type) {
     BOOLEAN = "boolean"
   )
   register_column_definition(connection, name, name, data_type)
+}
+
+add_record_column <- function(connection, name, type) {
+  DBI::dbWithTransaction(connection, {
+    create_record_column(connection, name, type)
+  })
 }
 
 rename_record_column <- function(connection, old_name, new_name) {

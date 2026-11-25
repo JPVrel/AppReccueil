@@ -19,20 +19,22 @@ add_typed_column <- function(connection, name, data_type) {
     stop("Type de champ non pris en charge.")
   }
 
-  column_id <- add_record_column(connection, name, unname(sql_types[[data_type]]))
-  data_type_sql <- quote_sql_value(connection, data_type)
-  column_id_sql <- quote_sql_value(connection, column_id)
-  DBI::dbExecute(
-    connection,
-    paste(
-      "UPDATE column_definitions SET data_type =",
-      data_type_sql,
-      "WHERE column_id =",
-      column_id_sql
+  DBI::dbWithTransaction(connection, {
+    column_id <- create_record_column(connection, name, unname(sql_types[[data_type]]))
+    data_type_sql <- quote_sql_value(connection, data_type)
+    column_id_sql <- quote_sql_value(connection, column_id)
+    DBI::dbExecute(
+      connection,
+      paste(
+        "UPDATE column_definitions SET data_type =",
+        data_type_sql,
+        "WHERE column_id =",
+        column_id_sql
+      )
     )
-  )
 
-  column_id
+    column_id
+  })
 }
 
 update_column_definition_names <- function(connection, old_sql_name, new_name) {
