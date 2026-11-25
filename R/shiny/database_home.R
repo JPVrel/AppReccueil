@@ -14,11 +14,20 @@ database_home_ui <- function() {
       accept = c(".csv", ".xlsx", ".rds", ".enc")
     ),
     shiny::uiOutput("import_file_password_ui"),
+    shiny::uiOutput("import_rds_trust_ui"),
     shiny::uiOutput("import_file_status"),
     shiny::uiOutput("import_type_controls"),
     shiny::uiOutput("import_action_controls"),
     shiny::textOutput("database_workflow_status")
   )
+}
+
+validate_pending_merge_database <- function(plan, active_database) {
+  if (is.null(active_database) ||
+    !identical(attr(plan, "database_path"), active_database$vault_path)) {
+    stop("La base active a changé depuis la comparaison ; relance l'analyse du fichier.")
+  }
+  invisible(TRUE)
 }
 
 database_home_server <- function(
@@ -36,11 +45,17 @@ database_home_server <- function(
   imported_data <- shiny::reactive({
     shiny::req(input$import_file$datapath)
     tryCatch(
-      read_database_import_upload(
-        input$import_file$datapath,
-        input$import_file$name,
-        input$import_file_password
-      ),
+      {
+        rds_upload <- grepl("[.]rds([.]enc)?$", tolower(input$import_file$name))
+        if (rds_upload && !isTRUE(input$confirm_trusted_rds)) {
+          stop("Le RDS n'a pas été chargé. Confirme que le fichier provient d'une source de confiance.")
+        }
+        read_database_import_upload(
+          input$import_file$datapath,
+          input$import_file$name,
+          input$import_file_password
+        )
+      },
       error = identity
     )
   })
@@ -173,7 +188,11 @@ database_home_server <- function(
 
   output$import_file_status <- shiny::renderUI({
     if (is.null(input$import_file$datapath)) {
-      return(shiny::p("Les colonnes d'un fichier importé seront associées à des types avant la création de la base."))
+      return(shiny::tagList(
+        shiny::p("Les colonnes d'un fichier importé seront associées à des types avant la création de la base."),
+        shiny::p("N'importe que des fichiers RDS provenant d'une source de confiance : ce format sérialise des objets R."),
+        shiny::p("Limites d'import : 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules.")
+      ))
     }
     imported <- imported_data()
     if (inherits(imported, "error")) {
@@ -187,6 +206,18 @@ database_home_server <- function(
       return(NULL)
     }
     shiny::passwordInput("import_file_password", "Mot de passe de l'export chiffré")
+  })
+
+  output$import_rds_trust_ui <- shiny::renderUI({
+    if (is.null(input$import_file$name) ||
+      !grepl("[.]rds([.]enc)?$", tolower(input$import_file$name))) {
+      return(NULL)
+    }
+    shiny::checkboxInput(
+      "confirm_trusted_rds",
+      "Je fais confiance à la source de ce fichier RDS et j'accepte son chargement",
+      value = FALSE
+    )
   })
 
   output$import_type_controls <- shiny::renderUI({
@@ -266,7 +297,12 @@ database_home_server <- function(
 
   shiny::observeEvent(input$open_database, {
     tryCatch({
-      vault <- open_database_vault(input$database_to_open, input$open_database_password)
+      database_path <- validate_local_database_selection(
+        input$database_to_open,
+        data_dir,
+        ".sqlite.enc"
+      )
+      vault <- open_database_vault(database_path, input$open_database_password)
       activate_vault(vault)
       shiny::updateTextInput(session, "open_database_password", value = "")
     }, error = function(condition) {
@@ -276,7 +312,12 @@ database_home_server <- function(
 
   shiny::observeEvent(input$open_plain_database, {
     tryCatch({
-      database <- open_unencrypted_database(input$plain_database_to_open)
+      database_path <- validate_local_database_selection(
+        input$plain_database_to_open,
+        data_dir,
+        ".sqlite"
+      )
+      database <- open_unencrypted_database(database_path)
       activate_vault(database)
       workflow_status(paste("Base ouverte sans chiffrement :", basename(database$vault_path)))
     }, error = function(condition) {
@@ -290,7 +331,11 @@ database_home_server <- function(
         input$protect_database_password,
         input$protect_database_password_confirm
       )
-      source_path <- input$plain_database_to_protect
+      source_path <- validate_local_database_selection(
+        input$plain_database_to_protect,
+        data_dir,
+        ".sqlite"
+      )
       encrypted_path <- paste0(source_path, ".enc")
       create_encrypted_database_copy(source_path, encrypted_path, input$protect_database_password)
       vault <- open_database_vault(encrypted_path, input$protect_database_password)
@@ -383,6 +428,7 @@ database_home_server <- function(
         current_import(),
         input$import_merge_key
       )
+      attr(plan, "database_path") <- vault_state()$vault_path
       merge_plan(plan)
       if (length(plan$conflicts) == 0L) {
         result <- apply_import_merge(connection_state(), plan)
@@ -421,6 +467,8 @@ database_home_server <- function(
       if (is.null(choice)) "" else choice
     }, character(1))
     tryCatch({
+      active_database <- shiny::isolate(vault_state())
+      validate_pending_merge_database(plan, active_database)
       result <- apply_import_merge(connection_state(), plan, choices)
       shiny::removeModal()
       merge_plan(NULL)

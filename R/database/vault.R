@@ -1,9 +1,17 @@
 vault_format_id <- function() {
-  "AppReccueilEncryptedV1"
+  charToRaw("APPRCVL1")
 }
 
 vault_password_rounds <- function() {
   64L
+}
+
+vault_envelope_header_bytes <- function() {
+  8L + 16L + 12L + 4L + 16L
+}
+
+vault_max_file_bytes <- function() {
+  256 * 1024^2
 }
 
 list_local_database_vaults <- function(data_dir) {
@@ -31,6 +39,20 @@ database_local_path <- function(data_dir, database_name, encrypted = FALSE) {
   }
   suffix <- if (isTRUE(encrypted)) ".sqlite.enc" else ".sqlite"
   file.path(data_dir, paste0(database_name, suffix))
+}
+
+validate_local_database_selection <- function(path, data_dir, suffix) {
+  if (length(path) != 1L || is.na(path) || !nzchar(path) ||
+    length(suffix) != 1L || is.na(suffix) || !startsWith(suffix, ".")) {
+    stop("La sélection de base locale est invalide.")
+  }
+  root <- normalizePath(data_dir, mustWork = TRUE)
+  selected <- normalizePath(path, mustWork = TRUE)
+  if (!identical(dirname(selected), root) ||
+    !endsWith(tolower(selected), tolower(suffix)) || isTRUE(file.info(selected)$isdir)) {
+    stop("La base sélectionnée doit être un fichier ", suffix, " situé directement dans le dossier local.")
+  }
+  selected
 }
 
 validate_vault_password <- function(password, confirmation = NULL) {
@@ -128,10 +150,12 @@ is_private_database_workspace <- function(workspace) {
   if (length(workspace) != 1L || is.na(workspace) || !nzchar(workspace)) {
     return(FALSE)
   }
-  normalized <- normalizePath(workspace, mustWork = FALSE)
+  if (!grepl("^appreccueil-db-", basename(workspace))) {
+    return(FALSE)
+  }
+  parent <- normalizePath(dirname(workspace), mustWork = TRUE)
   temporary_root <- normalizePath(tempdir(), mustWork = FALSE)
-  identical(dirname(normalized), temporary_root) &&
-    grepl("^appreccueil-db-", basename(normalized))
+  identical(parent, temporary_root)
 }
 
 checkpoint_sqlite_database <- function(connection) {
@@ -156,6 +180,11 @@ recover_abandoned_database_lock <- function(lock_path, owner, password = NULL) {
   }
 
   workspace <- owner$workspace
+  if (identical(owner$mode, "vault") &&
+    (is.null(workspace) || !dir.exists(workspace) ||
+      !file.exists(file.path(workspace, "working.sqlite")))) {
+    stop("La copie de travail du coffre est absente ; le verrou est conservé pour éviter de perdre des modifications.")
+  }
   if (!is.null(workspace) && dir.exists(workspace)) {
     if (!is_private_database_workspace(workspace)) {
       stop("Le dossier de travail abandonné est hors de l'espace temporaire privé ; le verrou est conservé.")
@@ -412,25 +441,29 @@ encrypt_file_with_password <- function(source_path, encrypted_path, password) {
 
   dir.create(dirname(encrypted_path), recursive = TRUE, showWarnings = FALSE)
   source_size <- file.info(source_path)$size
+  if (is.na(source_size) || source_size > vault_max_file_bytes()) {
+    stop("Le fichier à chiffrer dépasse la limite de 256 Mio.")
+  }
   source_bytes <- readBin(source_path, what = "raw", n = source_size)
   salt <- openssl::rand_bytes(16L)
   nonce <- openssl::rand_bytes(12L)
   rounds <- vault_password_rounds()
   key <- vault_derive_key(password, salt, rounds)
   ciphertext <- openssl::aes_gcm_encrypt(source_bytes, key, iv = nonce)
-  envelope <- list(
-    format = vault_format_id(),
-    cipher = "AES-256-GCM",
-    kdf = "bcrypt-pbkdf",
-    rounds = rounds,
-    salt = salt,
-    nonce = nonce,
-    ciphertext = ciphertext
-  )
+  tag <- attr(ciphertext, "tag")
+  attributes(ciphertext) <- NULL
 
   temporary_path <- tempfile(".encrypted-", tmpdir = dirname(encrypted_path))
   on.exit(unlink(temporary_path), add = TRUE)
-  saveRDS(envelope, temporary_path, version = 3)
+  output <- file(temporary_path, open = "wb")
+  on.exit(try(close(output), silent = TRUE), add = TRUE)
+  writeBin(vault_format_id(), output)
+  writeBin(salt, output)
+  writeBin(nonce, output)
+  writeBin(as.integer(rounds), output, size = 4L, endian = "big")
+  writeBin(tag, output)
+  writeBin(ciphertext, output)
+  close(output)
   Sys.chmod(temporary_path, mode = "0600")
   replace_vault_file(temporary_path, encrypted_path)
   invisible(encrypted_path)
@@ -442,24 +475,35 @@ decrypt_file_with_password <- function(encrypted_path, destination_path, passwor
     stop("Le fichier chiffré n'existe pas.")
   }
 
-  envelope <- tryCatch(readRDS(encrypted_path), error = function(error) NULL)
-  required_fields <- c("format", "cipher", "kdf", "rounds", "salt", "nonce", "ciphertext")
-  if (!is.list(envelope) || !all(required_fields %in% names(envelope)) ||
-    !identical(envelope$format, vault_format_id()) ||
-    !identical(envelope$cipher, "AES-256-GCM") ||
-    !identical(envelope$kdf, "bcrypt-pbkdf")) {
-    stop("Le fichier n'est pas un coffre AppReccueil reconnu.")
+  encrypted_size <- file.info(encrypted_path)$size
+  header_size <- vault_envelope_header_bytes()
+  if (is.na(encrypted_size) || encrypted_size < header_size + 16L ||
+    encrypted_size > vault_max_file_bytes()) {
+    stop("La taille du coffre est invalide ou dépasse la limite autorisée.")
   }
-  if (!identical(envelope$rounds, vault_password_rounds()) ||
-    !is.raw(envelope$salt) || length(envelope$salt) != 16L ||
-    !is.raw(envelope$nonce) || length(envelope$nonce) != 12L ||
-    !is.raw(envelope$ciphertext) || length(envelope$ciphertext) < 16L) {
+
+  input <- file(encrypted_path, open = "rb")
+  on.exit(close(input), add = TRUE)
+  format <- readBin(input, what = "raw", n = 8L)
+  salt <- readBin(input, what = "raw", n = 16L)
+  nonce <- readBin(input, what = "raw", n = 12L)
+  rounds <- readBin(input, what = integer(), n = 1L, size = 4L, endian = "big")
+  tag <- readBin(input, what = "raw", n = 16L)
+  ciphertext_size <- as.integer(encrypted_size - header_size)
+  ciphertext <- readBin(input, what = "raw", n = ciphertext_size)
+  if (!identical(format, vault_format_id()) || length(salt) != 16L ||
+    length(nonce) != 12L || length(rounds) != 1L || length(tag) != 16L ||
+    length(ciphertext) != ciphertext_size) {
+    stop("Le fichier n'est pas un coffre AppReccueil valide.")
+  }
+  if (!identical(rounds, vault_password_rounds()) || length(ciphertext) < 16L) {
     stop("Les paramètres cryptographiques du coffre sont invalides.")
   }
 
-  key <- vault_derive_key(password, envelope$salt, envelope$rounds)
+  attr(ciphertext, "tag") <- tag
+  key <- vault_derive_key(password, salt, rounds)
   plaintext <- tryCatch(
-    openssl::aes_gcm_decrypt(envelope$ciphertext, key, iv = envelope$nonce),
+    openssl::aes_gcm_decrypt(ciphertext, key, iv = nonce),
     error = function(error) stop("Mot de passe incorrect ou coffre endommagé.", call. = FALSE)
   )
   dir.create(dirname(destination_path), recursive = TRUE, showWarnings = FALSE, mode = "0700")

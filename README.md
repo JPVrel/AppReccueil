@@ -1,57 +1,33 @@
 # Application de recueil de données
 
-Application Shiny locale destinée à accompagner le recueil de données d'un projet de recherche. Le projet est volontairement petit et évolutif : les fonctions sont isolées, testées et pourront être enrichies progressivement.
+Application Shiny locale en cours d'expérimentation pour préparer et gérer un recueil de données de recherche.
 
-## Premier état du projet
+> [!CAUTION]
+> **Prototype réalisé en vibecoding, à utiliser à vos risques et périls.** Le code a été développé avec assistance d'IA et n'a pas fait l'objet d'un audit professionnel indépendant. Il peut contenir des défauts, perdre ou altérer des données, ou présenter des vulnérabilités. Ne l'utilisez pas comme système de production et n'y importez pas de données personnelles, confidentielles, médicales ou réglementées. Testez uniquement sur des copies et conservez des sauvegardes indépendantes.
 
-Cette première version établit le socle technique de l'application. Elle permet de démarrer localement un serveur Shiny depuis une boîte de dialogue, d'ouvrir l'application dans le navigateur par défaut et d'arrêter le serveur proprement.
+## Démarrage rapide
 
-Le parcours Shiny actuel reste volontairement minimal : une vue centrale des observations et un onglet de gestion des champs, dictionnaires et calculs. Le formulaire de saisie des réponses sera ajouté ensuite.
+Prérequis : R, Positron ou RStudio. Sur macOS, OpenSSL 3 est requis pour installer le chiffrement : `brew install openssl@3`.
 
-Cette étape prépare les évolutions suivantes : définir le formulaire de recueil, ajouter les règles de validation, enregistrer les observations, puis préparer l'utilisation par plusieurs personnes.
+Dans la console R, depuis la racine du projet :
 
-## Architecture
-
-```text
-.
-├── app.R                         # Point d'entrée Shiny reconnu par Positron
-├── launcher.R                    # Boîte de dialogue de lancement local
-├── R/
-│   ├── database/
-│   │   ├── archive.R             # Masquage réversible et restauration
-│   │   ├── catalog.R             # Métadonnées et identifiants stables
-│   │   ├── categories.R          # Dictionnaires catégoriels
-│   │   ├── columns.R             # Opérations sur les colonnes SQL
-│   │   ├── config.R              # Lecture de la configuration DB
-│   │   ├── connection.R          # Connexions SQLite ou driver distant DBI
-│   │   ├── dates.R               # Validation des dates ISO
-│   │   ├── fields.R              # Création des champs typés
-│   │   ├── formulas.R            # Validation et calcul des variables dérivées
-│   │   ├── records.R             # Lecture avec recalcul des formules
-│   │   └── schema.R              # Création des tables et synchronisation du catalogue
-│   ├── launcher/
-│   │   ├── config.R              # Chemins et paramètres du lanceur
-│   │   ├── server_process.R      # Démarrage, attente et arrêt du serveur
-│   │   └── ui.R                  # Fenêtre Tcl/Tk
-│   ├── shiny/
-│   │   ├── app.R                 # Interface et logique Shiny
-│   │   ├── database_spreadsheet.R # Vue centrale DT, export et routage des en-têtes
-│   │   └── database_management.R # Tableaux et contrôles de gestion des variables
-│   ├── dependencies.R            # Détection et installation des packages
-│   └── load_modules.R             # Chargement récursif des modules R
-├── scripts/
-│   └── install_dependencies.R    # Installation des dépendances
-├── config/
-│   └── database.yml               # Paramètres locaux ou distants à modifier
-├── data/
-│   └── .gitkeep                   # Coffres SQLite chiffrés, non versionnés
-├── exports/
-│   └── .gitkeep                   # Exports chiffrés locaux, non versionnés
-├── shiny/
-│   ├── app.R                     # Application exécutée par le serveur local
-│   └── run_app.R                 # Runner du processus R indépendant
-└── tests/testthat/               # Tests unitaires et tests du serveur Shiny
+```r
+source("scripts/install_dependencies.R")
+source("launcher.R")
 ```
+
+Le lanceur ouvre l'application dans le navigateur, normalement à l'adresse <http://127.0.0.1:8000>. Dans Positron, `app.R` peut aussi être lancé avec **Run App**.
+
+## Ce que l'application fait
+
+- Crée ou ouvre une base locale SQLite, avec ou sans mot de passe.
+- Importe CSV, Excel (`.xlsx`) ou RDS ; demande un type pour chaque colonne à la création.
+- Fusionne un fichier dans une base existante à partir d'une clé unique, avec arbitrage des conflits.
+- Affiche les observations dans un tableur avec recherche, filtres, tri et pagination.
+- Gère les variables typées, catégories, formules dérivées et champs masqués.
+- Exporte en CSV, Excel ou RDS ; le chiffrement de chaque export est facultatif.
+
+Le formulaire interactif de collecte et la saisie manuelle des réponses ne sont pas encore implémentés.
 
 ## Installation
 
@@ -61,132 +37,77 @@ Depuis la racine du projet, dans R :
 source("scripts/install_dependencies.R")
 ```
 
-Le script installe les packages nécessaires à l'application (`shiny`, `DT`, `DBI`, `RSQLite`, `yaml`, `writexl`, `readxl`, `openssl`) et au développement (`testthat`). Sur macOS, installe d'abord OpenSSL 3 avec `brew install openssl@3` ; le script configure ensuite la compilation du package R `openssl` avec Homebrew.
+Le script installe les dépendances Shiny, DBI, SQLite, import/export et test. Sur macOS, installe d'abord OpenSSL 3 avec `brew install openssl@3` ; le script configure ensuite le package R `openssl`.
 
-## Base de données
+## Utiliser l'accueil
 
-Les paramètres se trouvent dans [config/database.yml](config/database.yml). À l'ouverture, l'accueil inventorie les bases locales, permet d'en ouvrir une avec son mot de passe, d'en créer une autre ou de protéger une ancienne SQLite. Les onglets de gestion restent inactifs tant qu'aucune base n'est ouverte.
+Au démarrage, l'application recherche les bases dans `data/` et te propose :
 
-### Mode local : SQLite
+- d'ouvrir une base SQLite sans chiffrement ;
+- d'ouvrir un coffre `.sqlite.enc` avec son mot de passe ;
+- de créer une base, avec mot de passe facultatif ;
+- de créer une copie chiffrée d'une ancienne SQLite.
 
-La configuration par défaut indique le dossier local :
+La copie chiffrée d'une ancienne base ne supprime pas l'original : celui-ci reste en clair jusqu'à une suppression manuelle, après vérification de la copie.
 
-```yaml
-database:
-  mode: local
-  local:
-    path: data/recueil.sqlite
-```
+### Importer ou fusionner
 
-À la création, le mot de passe est facultatif. Sans mot de passe, la base est un fichier `data/<nom>.sqlite` non chiffré ; avec un mot de passe (12 caractères minimum), elle est créée comme coffre `data/<nom>.sqlite.enc`. Le coffre utilise une enveloppe AES-256-GCM authentifiée, une clé dérivée du mot de passe par bcrypt-PBKDF et un sel aléatoire ; le mot de passe n'est pas enregistré. À l'ouverture, SQLite travaille sur une copie temporaire dans un dossier privé ; à la fermeture, elle est checkpointée puis rechiffrée. Si le processus s'arrête brutalement, la prochaine ouverture détecte le verrou abandonné, vérifie l'intégrité de la copie temporaire et la rechiffre avec le mot de passe fourni. Si l'intégrité échoue, si le verrou vient d'une autre machine, ou si une récupération elle-même a été interrompue, l'application conserve les fichiers pour récupération manuelle.
+L'accueil accepte CSV, Excel (`.xlsx`) et RDS. Les limites sont 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. À la création depuis un fichier, choisis le type de chaque colonne.
 
-Les anciennes bases `data/*.sqlite` sont proposées sous forme de copie chiffrée. L'original reste en clair et n'est pas supprimé automatiquement ; après vérification de la copie, supprime-le manuellement si tu ne veux plus conserver cette version non protégée. Les bases SQLite et coffres sont ignorés par Git. Ce mode convient au développement et à un usage local ; un fichier SQLite partagé n'est pas recommandé pour plusieurs utilisateurs hébergés.
+**Attention au format RDS :** c'est une sérialisation d'objets R. Une case de confirmation est obligatoire ; n'importe que des fichiers provenant d'une source de confiance. Les fichiers chiffrés `.enc` demandent leur mot de passe.
 
-Au démarrage, l'application crée les tables `app_metadata`, `collection_records`, `column_definitions` et `category_dictionary`. `collection_records` contient un identifiant, une date de création, un payload et les colonnes physiques définies par l'utilisateur. `column_definitions` conserve les types métier, noms logiques, formules et états masqués ; `category_dictionary` conserve les codes et libellés catégoriels. Les identifiants internes stables permettent aux formules et dictionnaires de suivre un champ même s'il est renommé ou masqué.
+Pour fusionner dans une base déjà ouverte, choisis une colonne identifiante unique présente dans les deux sources. Les nouvelles observations sont ajoutées, les cellules vides sont complétées et chaque conflit demande quelle valeur conserver. La structure de la base est préservée : les colonnes inconnues du fichier sont ignorées. Si la base change pendant la boîte d'arbitrage, l'opération est annulée et doit être relancée.
 
-L'onglet **Base de données** présente les observations dans un tableur interactif (tri, recherche globale, filtres par colonne et pagination). Le mot de passe d'export est facultatif : vide, le fichier CSV, Excel ou data frame R est téléchargé sans chiffrement ; renseigné (12 caractères minimum), il est remis en `.csv.enc`, `.xlsx.enc` ou `.rds.enc` et archivé chiffré dans `exports/`. Pour réimporter un export chiffré dans l'application, choisis le fichier `.enc` sur l'accueil et saisis son mot de passe ; le déchiffrement temporaire sert uniquement à la lecture. Le navigateur garde le contrôle du dossier de téléchargement. Les variables dérivées sont calculées à la lecture. La colonne technique `payload` est exclue de la vue et des exports ; l'identifiant et la date restent visibles. Un double-clic sur un en-tête de variable ouvre l'onglet **Gestion des variables**, préselectionne le champ et charge son nom dans le formulaire de renommage ; pour un champ catégoriel ou dérivé, le dictionnaire ou la formule correspondante est aussi sélectionné. Les colonnes système ne sont pas modifiables depuis ce raccourci.
+### Consulter et gérer les données
 
-Les fichiers de `exports/` sont ignorés par Git car ils peuvent contenir des données de recherche.
+**Base de données** fournit le tableur central : tri, recherche, filtres, pagination et export CSV, Excel ou RDS. Le mot de passe d'export est facultatif ; sans lui, le fichier reste en clair. Avec lui (12 caractères minimum), le fichier est livré en `.enc` et archivé chiffré dans `exports/`.
 
-### Import et fusion
+**Gestion des variables** permet d'ajouter, renommer, masquer/restaurer des champs, gérer les catégories et construire des formules dérivées. Le double-clic sur un en-tête ouvre l'édition de la variable correspondante. Les champs masqués restent stockés ; ils ne sont pas supprimés.
 
-L'accueil accepte les fichiers CSV, Excel (`.xlsx`) et data frame R (`.rds`). Lors de la création d'une base depuis un fichier, choisis le type métier de chaque colonne. Les colonnes sont normalisées en noms de champs valides ; les valeurs numériques, dates et booléennes sont vérifiées avant écriture. Les catégories importées sont ajoutées au dictionnaire.
+Les dates sont au format `YYYY-MM-DD`. Les formules sont structurées et ne sont pas exécutées comme du code R libre. Les colonnes techniques `id`, `created_at` et `payload` ne sont pas éditables ; `payload` est exclu de la vue et des exports.
 
-Pour fusionner un fichier dans une base ouverte, sélectionne une colonne identifiante présente dans les deux sources et unique dans chaque source. Les colonnes du fichier qui n'existent pas dans la base sont ignorées. Les observations nouvelles sont ajoutées ; les cellules vides de la base sont complétées par les valeurs importées. Pour chaque cellule déjà renseignée différemment, une boîte de dialogue permet de conserver la valeur actuelle ou de prendre celle du fichier. Les changements sont appliqués transactionnellement après arbitrage.
+## Données et protection
 
-L'onglet **Gestion des variables** présente les champs actifs et masqués dans des tableaux indiquant leur nom, leur type, leur nature et, pour les variables dérivées, leur formule. Il permet :
+Une base créée sans mot de passe est un fichier SQLite ordinaire, lisible par toute personne ayant accès au compte et au fichier. Avec un mot de passe, elle est conservée sous forme de coffre AES-256-GCM ; le mot de passe n'est pas enregistré.
 
-- d'ajouter des champs texte, entiers, décimaux, dates et catégoriels ;
-- de renommer les champs personnalisés ; les valeurs existantes sont conservées ;
-- de masquer et restaurer un champ sans supprimer ses données ;
-- de gérer les entrées des dictionnaires catégoriels ;
-- de définir et modifier des variables dérivées à l'aide d'un constructeur visuel.
+Pour travailler, l'application déchiffre le coffre dans un dossier temporaire privé, puis le rechiffre à la fermeture. Un arrêt brutal peut nécessiter une récupération. Si l'état du verrou ou la copie temporaire est ambigu, l'application refuse l'ouverture pour éviter d'écraser des données ; le journal de sécurité décrit la récupération manuelle.
 
-Les colonnes techniques `id`, `created_at` et `payload` sont protégées. Le masquage déplace le nom SQL physique vers un nom interne `__hidden_N`, sans supprimer la colonne ni ses valeurs. À la restauration, le nom d'origine est repris s'il est libre ; sinon, un suffixe `_2`, `_3`, etc. est ajouté. Les formules suivent les identifiants internes et continuent de fonctionner si leur source est renommée ou masquée.
+Le chiffrement actuel bufferise les fichiers et refuse les bases/exports supérieurs à 256 Mio. Les fichiers `data/` et `exports/` sont ignorés par Git. Les exports sans mot de passe et les bases sans mot de passe restent en clair.
 
-Les champs catégoriels sont stockés par code texte, avec un libellé séparé. Modifier un code met à jour les réponses existantes ; supprimer une catégorie exige de choisir une catégorie de remplacement, puis réaffecte les réponses avant de retirer l'entrée. Les champs date sont des dates sans heure, validées au format strict `YYYY-MM-DD`.
+Le lanceur local écoute uniquement sur `127.0.0.1`. Le mode PostgreSQL distant reste configurable dans [config/database.yml](config/database.yml), mais une utilisation hébergée demande une authentification, des rôles, TLS, des sauvegardes et une revue de sécurité professionnelle.
 
-Les variables dérivées sont des colonnes virtuelles : leur formule est conservée dans `column_definitions`, et `read_collection_records()` les recalcule à chaque lecture. Le constructeur propose l'arithmétique numérique, les comparaisons, les différences de dates en jours et les conditions SI/SINON. Les formules ne sont jamais exécutées comme du code R libre. Une source manquante ou une division par zéro donne une valeur manquante ; les références incompatibles et les dépendances circulaires sont refusées.
+## PostgreSQL (option avancée)
 
-Les nouveaux champs sont nullable, ce qui permet de les ajouter même si la table contient déjà des lignes. Le formulaire de collecte et l'écriture des réponses ne sont pas encore implémentés. En mode local, tous les utilisateurs peuvent gérer le schéma ; avant un déploiement partagé, il faudra ajouter l'authentification et des droits d'administration.
-
-La création d'un champ et de ses métadonnées est transactionnelle : en cas d'échec du catalogue, la colonne SQL est annulée aussi. Les opérations arithmétiques sur des champs entiers sont promues en décimal avant calcul afin d'éviter les débordements des entiers R.
-
-### Mode distant : PostgreSQL
-
-Pour une base hébergée, créez d'abord une base PostgreSQL auprès d'un fournisseur de votre choix. Récupérez son hôte, son port, le nom de la base et les exigences TLS/SSL. Dans `config/database.yml`, remplacez la configuration locale par un bloc distant comme celui-ci :
+Le mode distant se configure dans `config/database.yml`. Il ne bénéficie pas du coffre local `.sqlite.enc` : configure TLS côté serveur, un compte SQL aux droits minimaux et une authentification avant toute mise en réseau.
 
 ```yaml
 database:
-	mode: remote
-	remote:
-		driver_package: RPostgres
-		driver_class: Postgres
-		connection:
-			dbname: nom_de_la_base
-			host: votre-hote.postgres.example
-			port: 5432
-			sslmode: require
-		credentials:
-			user_env: RECUEIL_DB_USER
-			password_env: RECUEIL_DB_PASSWORD
+  mode: remote
+  remote:
+    driver_package: RPostgres
+    driver_class: Postgres
+    connection:
+      dbname: nom_de_la_base
+      host: votre-hote.postgres.example
+      port: 5432
+      sslmode: require
+    credentials:
+      user_env: RECUEIL_DB_USER
+      password_env: RECUEIL_DB_PASSWORD
 ```
 
-Installez le driver choisi dans la même version de R que celle qui lance l'application. Pour l'exemple PostgreSQL :
+Installe le driver dans la version de R utilisée (`install.packages("RPostgres")`) et définis `RECUEIL_DB_USER` et `RECUEIL_DB_PASSWORD` dans l'environnement avant le lancement. Ne place jamais de secrets dans ce fichier ou dans Git.
 
-```r
-install.packages("RPostgres")
-```
+## Vérification
 
-Fournissez ensuite les identifiants à l'environnement avant de démarrer le lanceur. Dans le terminal macOS/Linux qui ouvre Positron :
-
-```sh
-export RECUEIL_DB_USER="nom_utilisateur"
-export RECUEIL_DB_PASSWORD="mot_de_passe"
-```
-
-Ne mettez jamais les identifiants dans `database.yml`, dans le code ou dans Git. Si Positron est déjà ouvert, vous pouvez définir les variables dans sa console R avant de lancer `source("launcher.R")` :
-
-```r
-Sys.setenv(
-	RECUEIL_DB_USER = "nom_utilisateur",
-	RECUEIL_DB_PASSWORD = "mot_de_passe"
-)
-source("launcher.R")
-```
-
-Remplacez les valeurs d'exemple par celles fournies par votre hébergeur. Configurez également le fournisseur pour autoriser les connexions depuis le réseau où l'application s'exécute, appliquez les paramètres TLS recommandés, et accordez au compte uniquement les droits nécessaires à l'application. Les noms `RPostgres` et `Postgres` sélectionnent le driver ; les autres clés de `connection` sont transmises à `DBI::dbConnect()`.
-
-La couche de connexion est basée sur DBI : un autre moteur pourra être utilisé en changeant `driver_package`, `driver_class` et les paramètres acceptés par son driver, sans réécrire le code de l'application. Le package du driver distant est à installer séparément ; le script général d'installation installe les dépendances communes et SQLite, pas un driver distant optionnel.
-
-## Lancer l'application
-
-Pour afficher la boîte de dialogue locale :
-
-```r
-source("launcher.R")
-```
-
-Elle permet de lancer le serveur Shiny, d'ouvrir `http://127.0.0.1:8000` dans le navigateur par défaut et d'arrêter proprement le serveur.
-
-Dans l'application, utilisez **Base de données** pour consulter les observations, ou **Gestion des variables** pour créer des champs, configurer leurs dictionnaires, définir des formules, les renommer, les masquer ou les restaurer. Le double-clic sur un en-tête du tableur ouvre directement l'édition de la variable correspondante.
-
-Pour lancer directement l'application Shiny dans Positron, utilisez **Run App** sur `app.R`.
-
-## Tests
-
-Après l'installation des dépendances :
+Lancer les tests unitaires et d'intégration :
 
 ```r
 testthat::test_dir("tests/testthat")
 ```
 
-Les tests suivent une boucle de développement inspirée de l'Extreme Programming : écrire un test ciblé, implémenter le comportement minimal, exécuter toute la suite, puis refactorer sans changer le comportement attendu.
+Le journal des validations adversariales et les limites connues sont consignés dans [docs/TESTS_AND_DATABASE_SECURITY.md](docs/TESTS_AND_DATABASE_SECURITY.md).
 
-Le journal des validations navigateur et les mesures de sécurisation à prévoir avant un déploiement partagé sont dans [docs/TESTS_AND_DATABASE_SECURITY.md](docs/TESTS_AND_DATABASE_SECURITY.md).
+## État du projet
 
-Le journal des validations navigateur et les mesures de sécurisation à prévoir avant un déploiement partagé sont suivis dans [docs/TESTS_AND_DATABASE_SECURITY.md](docs/TESTS_AND_DATABASE_SECURITY.md).
-
-## État actuel
-
-La version actuelle fournit un parcours d'accueil, un lanceur local, une base SQLite configurable et un gestionnaire de champs avec dictionnaires, dates, formules dynamiques et archivage réversible. Le formulaire de recueil, la validation complète des réponses et l'écriture des observations restent à ajouter.
+Le schéma, la gestion des variables, l'import et la fusion de données sont expérimentaux. La saisie manuelle des réponses et le formulaire de recueil restent à développer. Ce dépôt n'est pas un produit validé pour un déploiement ou un usage clinique/de recherche en production.

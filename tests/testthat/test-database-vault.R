@@ -8,10 +8,9 @@ testthat::test_that("vault encryption authenticates and restores file bytes", {
 
   encrypt_file_with_password(source_path, encrypted_path, "a-long-test-password")
   encrypted_bytes <- readBin(encrypted_path, what = "raw", n = file.info(encrypted_path)$size)
-  envelope <- readRDS(encrypted_path)
+  testthat::expect_identical(encrypted_bytes[seq_len(8L)], vault_format_id())
   decrypt_file_with_password(encrypted_path, decrypted_path, "a-long-test-password")
 
-  testthat::expect_identical(envelope$format, vault_format_id())
   testthat::expect_false(identical(encrypted_bytes, source_bytes))
   testthat::expect_identical(readBin(decrypted_path, what = "raw", n = file.info(decrypted_path)$size), source_bytes)
   testthat::expect_error(
@@ -19,12 +18,46 @@ testthat::test_that("vault encryption authenticates and restores file bytes", {
     "Mot de passe incorrect"
   )
 
-  envelope$rounds <- 2147483647L
-  saveRDS(envelope, encrypted_path)
+  invalid_rounds <- encrypted_bytes
+  invalid_rounds[37:40] <- as.raw(c(127, 255, 255, 255))
+  writeBin(invalid_rounds, encrypted_path)
   testthat::expect_error(
     decrypt_file_with_password(encrypted_path, decrypted_path, "a-long-test-password"),
     "paramètres cryptographiques"
   )
+
+  invalid_format <- encrypted_bytes
+  invalid_format[[1]] <- as.raw(0)
+  writeBin(invalid_format, encrypted_path)
+  testthat::expect_error(
+    decrypt_file_with_password(encrypted_path, decrypted_path, "a-long-test-password"),
+    "coffre AppReccueil valide"
+  )
+
+  saveRDS(
+    list(format = "legacy envelope", ciphertext = openssl::rand_bytes(256L)),
+    encrypted_path
+  )
+  testthat::expect_error(
+    decrypt_file_with_password(encrypted_path, decrypted_path, "a-long-test-password"),
+    "coffre AppReccueil valide"
+  )
+})
+
+testthat::test_that("vault encryption checks file size before reading into memory", {
+  source_path <- tempfile(fileext = ".bin")
+  encrypted_path <- tempfile(fileext = ".enc")
+  on.exit(unlink(c(source_path, encrypted_path)), add = TRUE)
+  sparse_file <- file(source_path, open = "wb")
+  seek(sparse_file, where = vault_max_file_bytes(), origin = "start")
+  writeBin(as.raw(0), sparse_file)
+  close(sparse_file)
+
+  testthat::expect_error(
+    encrypt_file_with_password(source_path, encrypted_path, "large-file-password"),
+    "limite de 256 Mio"
+  )
+  testthat::expect_false(file.exists(encrypted_path))
 })
 
 testthat::test_that("database vault creates, opens, and reseals a SQLite database", {
@@ -101,6 +134,37 @@ testthat::test_that("abandoned local database locks are recovered only after own
 
   testthat::expect_true(DBI::dbExistsTable(database_state$connection, "column_definitions"))
   testthat::expect_error(open_unencrypted_database(database_path), "déjà ouverte")
+})
+
+testthat::test_that("database chooser paths cannot escape the configured data directory", {
+  root <- tempfile("database-paths-")
+  data_dir <- file.path(root, "data")
+  dir.create(data_dir, recursive = TRUE)
+  on.exit(unlink(root, recursive = TRUE), add = TRUE)
+  inside <- file.path(data_dir, "local.sqlite")
+  outside <- file.path(root, "outside.sqlite")
+  file.create(inside)
+  file.create(outside)
+
+  testthat::expect_identical(
+    validate_local_database_selection(inside, data_dir, ".sqlite"),
+    normalizePath(inside)
+  )
+  testthat::expect_error(
+    validate_local_database_selection(outside, data_dir, ".sqlite"),
+    "directement dans le dossier local"
+  )
+  testthat::expect_error(
+    validate_local_database_selection(file.path(data_dir, "..", "outside.sqlite"), data_dir, ".sqlite"),
+    "directement dans le dossier local"
+  )
+  testthat::expect_error(
+    validate_local_database_selection(inside, data_dir, ".sqlite.enc"),
+    "fichier .sqlite.enc"
+  )
+  for (invalid_name in c("../outside", "/tmp/outside", "..", "name.sqlite", "name/child", "name\\\\child")) {
+    testthat::expect_error(database_local_path(data_dir, invalid_name), "Le nom de la base")
+  }
 })
 
 testthat::test_that("stale lock owner metadata must match the requested database", {
@@ -221,6 +285,25 @@ testthat::test_that("an abandoned encrypted workspace is integrity-checked and r
   testthat::expect_true("recovered_field" %in% list_column_definitions(recovered$connection)$name)
   testthat::expect_false(dir.exists(stale$workspace))
   testthat::expect_error(open_database_vault(vault_path, password), "déjà ouverte")
+})
+
+testthat::test_that("an abandoned encrypted lock is retained when its workspace is missing", {
+  vault_path <- tempfile(fileext = ".sqlite.enc")
+  on.exit(unlink(c(vault_path, paste0(vault_path, ".active")), recursive = TRUE), add = TRUE)
+  password <- "missing-workspace-password"
+  create_database_vault(vault_path, password)
+  stale <- open_database_vault(vault_path, password)
+  DBI::dbDisconnect(stale$connection)
+  unlink(stale$workspace, recursive = TRUE)
+  owner <- readRDS(database_lock_owner_path(stale$lock_path))
+  owner$pid <- .Machine$integer.max
+  saveRDS(owner, database_lock_owner_path(stale$lock_path))
+
+  testthat::expect_error(
+    open_database_vault(vault_path, password),
+    "copie de travail du coffre est absente"
+  )
+  testthat::expect_true(dir.exists(stale$lock_path))
 })
 
 testthat::test_that("encrypted spreadsheet downloads retain format behind the vault", {

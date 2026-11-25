@@ -6,7 +6,12 @@ Ce document garde une trace des validations effectuées et des mesures à prévo
 
 | Date | Périmètre | Résultat |
 | --- | --- | --- |
+| 2026-11-25 | Parcours adversarial demandé | Tentatives SQL/HTML littérales, formules CSV, fichiers/formats invalides, tailles/lignes au-delà des limites, chemins hors dossier, noms de base hostiles, valeurs entières extrêmes, clés dupliquées, conflit périmé, changement de base durant arbitrage, verrous/copies simultanés, coffres altérés et RDS non confirmé. Cas bloqués par message/assertion ; aucune écriture hors base temporaire. |
 | 2026-11-25 | Revue de sécurité avant publication | Entiers hors plage refusés ; bcrypt-PBKDF limité au coût du format ; copies checkpointées et verrouillées ; récupération des verrous sérialisée avec validation des coffres abandonnés ; créations échouées nettoyées. Test parallèle : un seul processus récupère un verrou périmé. |
+| 2026-11-25 | Essais adversariaux supplémentaires | Contrôle propriétaire des chemins, plan de fusion lié à sa base, confirmation RDS avant désérialisation, enveloppe binaire sans `readRDS`, plafonds parsing/chiffrement et récupération de sauvegarde `.previous`. |
+| 2026-11-25 | Suite complète après tests adversariaux | 124 cas, 431 assertions, 0 échec, 0 erreur et 0 avertissement. |
+| 2026-11-25 | Suite complète après essais adversariaux | 123 cas, 425 assertions, 0 échec, 0 erreur et 0 avertissement. |
+| 2026-11-25 | Suite finale après confirmation RDS et limites de parsing | 124 cas, 431 assertions, 0 échec, 0 erreur et 0 avertissement. |
 | 2026-11-25 | Suite complète après audit de sécurité | 110 cas, 382 assertions, 0 échec, 0 erreur et 0 avertissement. |
 | 2026-11-25 | Accueil, coffre et import | Tests couvrent création/ouverture/fermeture avec ou sans mot de passe, copie protégée d'une SQLite ancienne, import CSV/XLSX/RDS, typage, fusion par clé, remplissage, ajout et choix de conflits. Exports protégés réimportables avec mot de passe ; les exports sans mot de passe restent en clair. |
 | 2026-11-25 | Suite complète après parcours d'accueil | 100 cas de test, 345 assertions, 0 échec, 0 erreur et 0 avertissement. |
@@ -23,6 +28,37 @@ Ce document garde une trace des validations effectuées et des mesures à prévo
 | 2026-11-25 | Rafraîchissement de la table | Ajout d'une variable via Gestion des variables ; le nouvel en-tête apparaît immédiatement dans Base de données, sans rechargement. |
 | 2026-11-25 | Export CSV | Endpoint navigateur `fetch` : réponse HTTP 200, `text/csv`, disposition `attachment`, 31 observations et variable dérivée incluses, `payload` absent. Test unitaire : export archivé dans un dossier dédié, nom horodaté sans écrasement, valeurs masquées et payload exclus. Le navigateur intégré ne relaie pas toujours son événement natif `download`, le corps CSV a donc aussi été contrôlé via la réponse HTTP. |
 | 2026-11-25 | Session Shiny réelle | WebSocket actif, overlay absent, navigation vers Base de données et Gestion des variables validée ; la session de test utilise une copie temporaire de l'application et de SQLite. |
+
+### Matrice des tentatives adversariales
+
+| Tentative | Contrôle observé | Décision |
+| --- | --- | --- |
+| Chemin SQLite forgé (`../`, absolu, fichier sibling) | Chemin canonique vérifié sous `data/` avant l'ouverture ou la copie | Rejeté ; fichier extérieur inchangé |
+| Nom de base avec séparateur, extension ou `..` | Liste blanche de caractères et nommage serveur de l'extension | Rejeté avec erreur de nom |
+| Mot de passe vide, confirmation absente ou différente | Les deux champs doivent être vides, ou correspondre avec 12 caractères minimum | Rejeté avec erreur explicite |
+| RDS sans confirmation | La désérialisation n'est appelée qu'après la case de confiance | Import bloqué ; l'utilisateur doit confirmer une source de confiance |
+| RDS malformé après confirmation | Erreur du désérialiseur convertie en message utilisateur | Rejeté comme RDS invalide/incompatible |
+| `.enc` RDS/ancien envelope ou magic invalide | En-tête binaire fixe contrôlé avant AES-GCM ; aucune désérialisation RDS de l'enveloppe | Rejeté comme coffre invalide |
+| Mauvais mot de passe ou ciphertext/tag altéré | Authentification AES-GCM | Déchiffrement refusé |
+| Itérations KDF modifiées ou paramètres tronqués | Coût KDF exact et dimensions fixes validés avant dérivation | Rejeté avant bcrypt-PBKDF |
+| CSV de plus de 25 Mio, classeur expansé >100 Mio, import >50 000 lignes/500 colonnes/1 million de cellules | Contrôles de taille archive/fichier et lecture CSV/XLSX bornée | Import refusé avec limite affichée |
+| XLSX faux/corrompu | Archive ZIP inspectée avant `readxl` | Rejeté avec erreur de classeur |
+| En-têtes vides ou doublons insensibles à la casse | Validation avant normalisation des noms | Rejetés, pas de collision SQL |
+| Texte ressemblant à SQL ou HTML dans une ligne importée | Valeurs DBI citées, nom de champ validé ; rendu Shiny/DT échappé | Conservé comme donnée littérale, aucune requête/markup exécuté |
+| Cellule texte CSV commençant par `=`, `+`, `-` ou `@` (espaces compris) | Neutralisation formule dans le writer CSV | Export préfixé par apostrophe ; XLSX garde les textes comme cellules partagées, sans formule |
+| Entier décimal, `Inf`, valeurs hors bornes R ou limite décimale ambiguë | Parse exact des chaînes et borne représentable vérifiée avant coercition | Rejeté au lieu de devenir `NA` |
+| Clé de fusion vide, dupliquée ou collision après conversion | Unicité revérifiée après conversion de type | Fusion refusée avant écriture |
+| Base modifiée après aperçu de fusion | Plan recalculé dans la transaction avant application | Plan périmé rejeté, aucune valeur écrasée |
+| Changement de base pendant la boîte de conflit | Plan lié au chemin de la base source | Choix refusé sur la nouvelle base |
+| Erreur après création de quelques colonnes d'import | Transaction DBI et suppression du fichier créé par la tentative | Pas de base partielle ; même nom réutilisable |
+| Deux réservations d'export simultanées | Répertoire de verrou atomique pour chaque nom | Noms uniques générés |
+| Deux accès à une base ouverte | Verrou `.active` exclusif propriétaire/PID | Second accès refusé |
+| Arrêt pendant une session coffre | Verrou abandonné sérialisé ; workspace privé contrôlé, SQLite integrity-check et WAL checkpoint avant rechiffrement | Récupéré si intègre ; sinon verrou/fichiers conservés et message d'action manuelle |
+| Récupération interrompue, PID/propriétaire/path incohérent | Claim `.recovery` exclusif et correspondance hôte/PID/mode/chemin | Échec fermé ; vérification/suppression manuelle nécessaire |
+| Copie d'une SQLite active ou checkpoint WAL incomplet | Verrou source et statut checkpoint vérifié | Copie protégée refusée, source préservée |
+| Fichier base/export au-delà de 256 Mio à chiffrer | Taille contrôlée avant chargement du buffer AES | Refusé avec message, source préservée |
+
+**Limite assumée :** RDS reste un format sérialisé. L'application exige une confirmation de confiance, mais ne peut pas démontrer la provenance d'un objet RDS ; ne charge pas de RDS provenant d'une source inconnue. Les coffres sont locaux et accessibles aux personnes ayant le compte système et le mot de passe ; le chiffrement ne remplace ni l'authentification multi-utilisateur ni la sécurité du poste.
 
 ### Cas couverts par la suite automatisée existante
 
@@ -52,6 +88,10 @@ testthat::test_dir("tests/testthat")
 - Le masquage conserve les colonnes et valeurs ; il n'existe pas de suppression physique depuis l'interface.
 - Les secrets d'une base distante sont attendus via des variables d'environnement, pas dans le dépôt.
 - Les bases et exports pour lesquels un mot de passe est défini utilisent AES-256-GCM et une clé dérivée du mot de passe ; aucune clé n'est stockée avec les données. Laisser le mot de passe vide crée ou exporte un fichier en clair.
+- Les imports sont plafonnés à 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. Les fichiers RDS sont des objets sérialisés ; l'UI demande une confirmation et seules des sources de confiance doivent être chargées.
+- Le chiffrement AES bufferise le fichier ; les bases et exports de plus de 256 Mio sont refusés avant lecture en mémoire.
+- Les chemins reçus depuis les sélecteurs Shiny sont canonicalisés et doivent pointer directement dans le dossier `data/` configuré.
+- Un plan de fusion est recalculé dans la transaction avant écriture ; tout changement entre aperçu et validation annule l'opération.
 - Pendant une session, SQLite utilise une copie temporaire déchiffrée, dans un répertoire privé. Après un arrêt brutal, la prochaine ouverture vérifie puis rechiffre la copie ; si elle est invalide, les fichiers temporaires sont conservés pour récupération manuelle.
 - Si l'application est interrompue pendant la récupération d'un verrou, le marqueur `.recovery` est volontairement conservé ; après avoir vérifié qu'aucun processus ne travaille sur cette base, retire ce marqueur manuellement avant de rouvrir.
 - La conversion d'une ancienne SQLite conserve la source en clair ; l'accueil avertit et ne la supprime pas automatiquement.

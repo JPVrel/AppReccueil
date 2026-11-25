@@ -41,8 +41,69 @@ normalize_import_field_names <- function(source_names) {
   mapping
 }
 
+database_import_limits <- function() {
+  list(
+    file_bytes = 25 * 1024^2,
+    xlsx_expanded_bytes = 100 * 1024^2,
+    rows = 50000L,
+    columns = 500L,
+    cells = 1000000
+  )
+}
+
+validate_database_import_file <- function(path, extension) {
+  limits <- database_import_limits()
+  info <- file.info(path)
+  if (nrow(info) != 1L || is.na(info$size) || info$size > limits$file_bytes) {
+    stop("Le fichier dépasse la limite de taille autorisée de 25 Mio.")
+  }
+
+  if (identical(extension, "xlsx")) {
+    archive <- tryCatch(utils::unzip(path, list = TRUE), error = function(error) NULL)
+    if (is.null(archive) || !"Length" %in% names(archive) ||
+      anyNA(archive$Length) || sum(archive$Length) > limits$xlsx_expanded_bytes) {
+      stop("Le classeur Excel est invalide ou dépasse la limite de décompression autorisée.")
+    }
+  }
+
+  invisible(TRUE)
+}
+
+import_row_limit <- function(column_count, limits = database_import_limits()) {
+  if (length(column_count) != 1L || is.na(column_count) || column_count < 1L) {
+    stop("Le fichier doit contenir au moins une colonne.")
+  }
+  if (column_count > limits$columns) {
+    stop("Le tableau dépasse les limites autorisées (500 colonnes maximum).")
+  }
+  min(limits$rows, floor(limits$cells / column_count))
+}
+
 read_database_import_file <- function(path, file_name = path) {
   extension <- tolower(tools::file_ext(file_name))
+  if (!extension %in% c("csv", "xlsx", "rds")) {
+    stop("Le fichier doit être au format CSV, XLSX ou RDS.")
+  }
+  validate_database_import_file(path, extension)
+  limits <- database_import_limits()
+  header <- switch(
+    extension,
+    csv = utils::read.csv(
+      path,
+      check.names = FALSE,
+      colClasses = "character",
+      na.strings = "",
+      stringsAsFactors = FALSE,
+      nrows = 0L
+    ),
+    xlsx = as.data.frame(
+      readxl::read_excel(path, col_types = "text", n_max = 0L, .name_repair = "minimal"),
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    ),
+    rds = NULL
+  )
+  row_limit <- if (extension == "rds") NULL else import_row_limit(ncol(header), limits)
   imported <- switch(
     extension,
     csv = utils::read.csv(
@@ -50,18 +111,34 @@ read_database_import_file <- function(path, file_name = path) {
       check.names = FALSE,
       colClasses = "character",
       na.strings = "",
-      stringsAsFactors = FALSE
+      stringsAsFactors = FALSE,
+      nrows = row_limit + 1L
     ),
     xlsx = as.data.frame(
-      readxl::read_excel(path, col_types = "text", .name_repair = "minimal"),
+      readxl::read_excel(
+        path,
+        col_types = "text",
+        n_max = row_limit + 1L,
+        .name_repair = "minimal"
+      ),
       check.names = FALSE,
       stringsAsFactors = FALSE
     ),
-    rds = readRDS(path),
+    rds = tryCatch(
+      readRDS(path),
+      error = function(error) stop("Le fichier RDS est invalide ou incompatible.", call. = FALSE)
+    ),
     stop("Le fichier doit être au format CSV, XLSX ou RDS.")
   )
   if (!is.data.frame(imported) || ncol(imported) == 0L) {
     stop("Le fichier doit contenir au moins une colonne de données.")
+  }
+  if (nrow(imported) > limits$rows || ncol(imported) > limits$columns ||
+    as.double(nrow(imported)) * as.double(ncol(imported)) > limits$cells) {
+    stop("Le tableau dépasse les limites autorisées (50 000 lignes, 500 colonnes, 1 million de cellules).")
+  }
+  if (!is.null(row_limit) && nrow(imported) > row_limit) {
+    stop("Le tableau dépasse les limites autorisées (50 000 lignes, 500 colonnes, 1 million de cellules).")
   }
   if (any(vapply(imported, is.list, logical(1)))) {
     stop("Les colonnes contenant des listes ne peuvent pas être importées.")
@@ -76,6 +153,10 @@ read_database_import_file <- function(path, file_name = path) {
 read_database_import_upload <- function(path, file_name, password = NULL) {
   if (!grepl("[.]enc$", tolower(file_name))) {
     return(read_database_import_file(path, file_name))
+  }
+  encrypted_size <- file.info(path)$size
+  if (is.na(encrypted_size) || encrypted_size > database_import_limits()$file_bytes + vault_envelope_header_bytes()) {
+    stop("L'export chiffré dépasse la limite d'import de 25 Mio.")
   }
   if (is.null(password) || !nzchar(password)) {
     stop("Saisis le mot de passe de ce fichier chiffré.")
@@ -414,9 +495,19 @@ apply_import_merge <- function(connection, plan, conflict_choices = character())
   }
 
   definitions <- list_column_definitions(connection)
+  current_plan <- NULL
   DBI::dbWithTransaction(connection, {
-    add_import_categories(connection, plan$new_rows, definitions)
-    selected_values <- c(plan$fills, plan$conflicts[
+    current_plan <- prepare_import_merge(connection, plan$imported, plan$key_field)
+    planned_parts <- c("definitions", "imported", "new_rows", "fills", "conflicts")
+    plan_is_current <- all(vapply(planned_parts, function(part) {
+      isTRUE(all.equal(plan[[part]], current_plan[[part]], check.attributes = FALSE))
+    }, logical(1)))
+    if (!plan_is_current) {
+      stop("La base a changé depuis la comparaison ; relance l'analyse du fichier avant de valider.")
+    }
+
+    add_import_categories(connection, current_plan$new_rows, definitions)
+    selected_values <- c(current_plan$fills, current_plan$conflicts[
       which(conflict_choices == "imported")
     ])
     for (entry in selected_values) {
@@ -424,21 +515,21 @@ apply_import_merge <- function(connection, plan, conflict_choices = character())
       names(field_data) <- entry$field
       add_import_categories(connection, field_data, definitions)
     }
-    for (fill in plan$fills) {
+    for (fill in current_plan$fills) {
       update_imported_value(connection, fill$record_id, fill$field, fill$incoming_value, definitions)
     }
-    for (index in seq_along(plan$conflicts)) {
+    for (index in seq_along(current_plan$conflicts)) {
       if (identical(conflict_choices[[index]], "imported")) {
-        conflict <- plan$conflicts[[index]]
+        conflict <- current_plan$conflicts[[index]]
         update_imported_value(connection, conflict$record_id, conflict$field, conflict$incoming_value, definitions)
       }
     }
-    insert_imported_observations(connection, plan$new_rows)
+    insert_imported_observations(connection, current_plan$new_rows)
   })
 
   invisible(list(
-    inserted = nrow(plan$new_rows),
-    filled = length(plan$fills),
-    conflicts = length(plan$conflicts)
+    inserted = nrow(current_plan$new_rows),
+    filled = length(current_plan$fills),
+    conflicts = length(current_plan$conflicts)
   ))
 }

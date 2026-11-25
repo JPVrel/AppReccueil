@@ -16,6 +16,11 @@ testthat::test_that("the UI renders the database column-management tab", {
   testthat::expect_match(ui_html, "active_variables_table")
   testthat::expect_match(ui_html, "archived_variables_table")
   testthat::expect_match(ui_html, "category_entries")
+
+  shiny::testServer(build_app_server(), {
+    import_status <- htmltools::renderTags(output$import_file_status)$html
+    testthat::expect_match(import_status, "source de confiance")
+  })
 })
 
 testthat::test_that("a Shiny session creates, closes, and reopens an encrypted database", {
@@ -173,6 +178,74 @@ testthat::test_that("column-management actions explain when no database is conne
   })
 })
 
+testthat::test_that("forged database chooser paths outside data_dir are rejected", {
+  project_dir <- tempfile("path-guard-project-")
+  data_dir <- file.path(project_dir, "data")
+  dir.create(data_dir, recursive = TRUE)
+  on.exit(unlink(project_dir, recursive = TRUE), add = TRUE)
+  config <- list(
+    mode = "local",
+    project_dir = project_dir,
+    local = list(path = file.path(data_dir, "default.sqlite"))
+  )
+  outside_path <- tempfile(fileext = ".sqlite")
+  on.exit(unlink(c(outside_path, paste0(outside_path, ".enc"))), add = TRUE)
+  create_unencrypted_database(outside_path)
+  before <- readBin(outside_path, what = "raw", n = file.info(outside_path)$size)
+
+  shiny::testServer(build_app_server(config), {
+    session$setInputs(
+      plain_database_to_open = outside_path,
+      open_plain_database = 1
+    )
+    testthat::expect_match(output$database_workflow_status, "directement dans le dossier local")
+
+    session$setInputs(
+      plain_database_to_protect = outside_path,
+      protect_database_password = "external-path-password",
+      protect_database_password_confirm = "external-path-password",
+      protect_database = 1
+    )
+    testthat::expect_match(output$database_workflow_status, "directement dans le dossier local")
+  })
+
+  after <- readBin(outside_path, what = "raw", n = file.info(outside_path)$size)
+  testthat::expect_identical(after, before)
+  testthat::expect_false(file.exists(paste0(outside_path, ".enc")))
+})
+
+testthat::test_that("RDS uploads require explicit trust confirmation before deserialization", {
+  project_dir <- tempfile("rds-trust-project-")
+  data_dir <- file.path(project_dir, "data")
+  dir.create(data_dir, recursive = TRUE)
+  on.exit(unlink(project_dir, recursive = TRUE), add = TRUE)
+  import_path <- tempfile()
+  on.exit(unlink(import_path), add = TRUE)
+  writeBin(charToRaw("not an RDS serialization"), import_path)
+  config <- list(
+    mode = "local",
+    project_dir = project_dir,
+    local = list(path = file.path(data_dir, "default.sqlite"))
+  )
+
+  shiny::testServer(build_app_server(config), {
+    session$setInputs(import_file = list(
+      name = "untrusted.rds",
+      datapath = import_path,
+      size = file.info(import_path)$size,
+      type = "application/octet-stream"
+    ))
+    trust_controls <- htmltools::renderTags(output$import_rds_trust_ui)$html
+    testthat::expect_match(trust_controls, "Je fais confiance à la source")
+    blocked_status <- htmltools::renderTags(output$import_file_status)$html
+    testthat::expect_match(blocked_status, "RDS n'a pas été chargé")
+
+    session$setInputs(confirm_trusted_rds = TRUE)
+    parsed_status <- htmltools::renderTags(output$import_file_status)$html
+    testthat::expect_match(parsed_status, "RDS est invalide ou incompatible")
+  })
+})
+
 testthat::test_that("a remotely configured database is connected at session startup", {
   database_config <- list(
     mode = "remote",
@@ -258,4 +331,77 @@ testthat::test_that("the import conflict dialog applies explicit per-value choic
   testthat::expect_equal(records$age[records$participant_code == "P001"], 35L)
   testthat::expect_equal(records$note[records$participant_code == "P001"], "filled")
   testthat::expect_equal(records$age[records$participant_code == "P002"], 41L)
+})
+
+testthat::test_that("pending merge decisions are bound to their source database", {
+  plan <- structure(list(key_field = "participant_code"), database_path = "/data/source.sqlite")
+  source_database <- list(vault_path = "/data/source.sqlite")
+  other_database <- list(vault_path = "/data/other.sqlite")
+
+  testthat::expect_no_error(validate_pending_merge_database(plan, source_database))
+  testthat::expect_error(
+    validate_pending_merge_database(plan, other_database),
+    "La base active a changé"
+  )
+  testthat::expect_error(validate_pending_merge_database(plan, NULL), "La base active a changé")
+})
+
+testthat::test_that("conflict decisions cannot be applied after switching databases", {
+  project_dir <- tempfile("stale-merge-project-")
+  data_dir <- file.path(project_dir, "data")
+  dir.create(data_dir, recursive = TRUE)
+  on.exit(unlink(project_dir, recursive = TRUE), add = TRUE)
+  source_path <- file.path(data_dir, "source.sqlite.enc")
+  other_path <- file.path(data_dir, "other.sqlite.enc")
+  password <- "stale-merge-test-password"
+
+  create_database_vault(source_path, password)
+  source_vault <- open_database_vault(source_path, password)
+  add_typed_column(source_vault$connection, "participant_code", "text")
+  add_typed_column(source_vault$connection, "age", "integer")
+  DBI::dbExecute(
+    source_vault$connection,
+    "INSERT INTO collection_records (id, created_at, payload, participant_code, age) VALUES ('row-source', CURRENT_TIMESTAMP, '{}', 'P001', 30)"
+  )
+  close_database_vault(source_vault)
+
+  create_database_vault(other_path, password)
+  other_vault <- open_database_vault(other_path, password)
+  add_typed_column(other_vault$connection, "participant_code", "text")
+  add_typed_column(other_vault$connection, "age", "integer")
+  close_database_vault(other_vault)
+
+  import_path <- tempfile(fileext = ".csv")
+  on.exit(unlink(import_path), add = TRUE)
+  utils::write.csv(data.frame(participant_code = "P001", age = "35"), import_path, row.names = FALSE)
+
+  shiny::testServer(build_app_server(list(
+    mode = "local",
+    project_dir = project_dir,
+    local = list(path = file.path(data_dir, "default.sqlite"))
+  )), {
+    session$setInputs(database_to_open = source_path, open_database_password = password, open_database = 1)
+    session$setInputs(import_file = list(
+      name = "update.csv",
+      datapath = import_path,
+      size = file.info(import_path)$size,
+      type = "text/csv"
+    ))
+    session$setInputs(import_merge_key = "participant_code", prepare_import_merge = 1)
+    session$setInputs(close_database = 1)
+    session$setInputs(database_to_open = other_path, open_database = 1)
+    session$setInputs(import_conflict_choice_1 = "imported", apply_import_conflicts = 1)
+    testthat::expect_match(output$database_workflow_status, "base active a changé")
+    session$setInputs(close_database = 2)
+  })
+
+  unchanged <- open_database_vault(source_path, password)
+  on.exit(close_database_vault(unchanged), add = TRUE)
+  source_records <- read_collection_records(unchanged$connection)
+  testthat::expect_equal(source_records$age, 30L)
+  close_database_vault(unchanged)
+
+  other <- open_database_vault(other_path, password)
+  on.exit(close_database_vault(other), add = TRUE)
+  testthat::expect_equal(nrow(read_collection_records(other$connection)), 0L)
 })

@@ -261,7 +261,7 @@ database_spreadsheet_ui <- function() {
       ),
       shiny::passwordInput(
         "database_export_password",
-        "Mot de passe pour chiffrer l'export (facultatif)"
+        "Mot de passe pour chiffrer l'export (facultatif, 12 caractères minimum si utilisé)"
       ),
       shiny::p("Si ce champ reste vide, le fichier sera exporté sans chiffrement.")
     ),

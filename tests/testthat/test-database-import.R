@@ -23,6 +23,69 @@ testthat::test_that("import readers preserve headers and normalize field names",
   testthat::expect_identical(names(rds_import), names(csv_import))
 })
 
+testthat::test_that("malformed headers and unsupported input objects are rejected", {
+  testthat::expect_error(normalize_import_field_names(c("age", "AGE")), "uniques")
+  testthat::expect_error(normalize_import_field_names(c("age", "")), "non vide")
+  testthat::expect_error(convert_database_import(data.frame(age = "1"), c(other = "integer")), "chaque colonne")
+
+  malformed_path <- tempfile(fileext = ".xlsx")
+  on.exit(unlink(malformed_path), add = TRUE)
+  writeBin(charToRaw("not an xlsx archive"), malformed_path)
+  testthat::expect_error(read_database_import_file(malformed_path), "classeur Excel est invalide")
+})
+
+testthat::test_that("import file size is bounded before parsing", {
+  large_path <- tempfile(fileext = ".csv")
+  on.exit(unlink(large_path), add = TRUE)
+  connection <- file(large_path, open = "wb")
+  seek(connection, where = database_import_limits()$file_bytes + 1, origin = "start")
+  writeBin(as.raw(0), connection)
+  close(connection)
+
+  testthat::expect_error(
+    read_database_import_file(large_path, "large.csv"),
+    "limite de taille"
+  )
+})
+
+testthat::test_that("CSV and XLSX row limits are enforced during parsing", {
+  row_count <- database_import_limits()$rows + 1L
+  source_data <- data.frame(value = seq_len(row_count))
+  csv_path <- tempfile(fileext = ".csv")
+  xlsx_path <- tempfile(fileext = ".xlsx")
+  on.exit(unlink(c(csv_path, xlsx_path)), add = TRUE)
+  utils::write.csv(source_data, csv_path, row.names = FALSE)
+  writexl::write_xlsx(source_data, xlsx_path)
+
+  testthat::expect_error(read_database_import_file(csv_path), "50 000 lignes")
+  testthat::expect_error(read_database_import_file(xlsx_path), "50 000 lignes")
+})
+
+testthat::test_that("column and cell limits reduce parser row allowance before reading", {
+  testthat::expect_equal(import_row_limit(1L), 50000)
+  testthat::expect_equal(import_row_limit(10L), 50000)
+  testthat::expect_equal(import_row_limit(500L), 2000)
+  testthat::expect_error(import_row_limit(501L), "500 colonnes")
+
+  csv_path <- tempfile(fileext = ".csv")
+  xlsx_path <- tempfile(fileext = ".xlsx")
+  on.exit(unlink(c(csv_path, xlsx_path)), add = TRUE)
+  wide <- as.data.frame(setNames(rep(list(character()), 501L), paste0("field", seq_len(501L))))
+  utils::write.csv(wide, csv_path, row.names = FALSE)
+  writexl::write_xlsx(wide, xlsx_path)
+
+  testthat::expect_error(read_database_import_file(csv_path), "500 colonnes")
+  testthat::expect_error(read_database_import_file(xlsx_path), "500 colonnes")
+})
+
+testthat::test_that("RDS import rejects serialized objects that are not data frames", {
+  rds_path <- tempfile(fileext = ".rds")
+  on.exit(unlink(rds_path), add = TRUE)
+  saveRDS(list(value = seq_len(10)), rds_path)
+
+  testthat::expect_error(read_database_import_file(rds_path), "au moins une colonne")
+})
+
 testthat::test_that("encrypted spreadsheet exports can be re-imported with their password", {
   plain_path <- tempfile(fileext = ".csv")
   encrypted_path <- tempfile(fileext = ".enc")
@@ -112,6 +175,30 @@ testthat::test_that("new database imports create typed fields, categories, and r
   testthat::expect_identical(anyDuplicated(records$id), 0L)
 })
 
+testthat::test_that("SQL-looking and HTML-looking imported values remain literal data", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  sql_text <- "P1'); DROP TABLE collection_records; --"
+  html_text <- "<img src=x onerror=alert(1)>"
+  imported <- data.frame(
+    participant_code = sql_text,
+    note = html_text,
+    stringsAsFactors = FALSE
+  )
+
+  create_imported_database(
+    connection,
+    imported,
+    c(participant_code = "text", note = "text")
+  )
+
+  records <- read_collection_records(connection)
+  testthat::expect_true(DBI::dbExistsTable(connection, "collection_records"))
+  testthat::expect_identical(records$participant_code, sql_text)
+  testthat::expect_identical(records$note, html_text)
+})
+
 testthat::test_that("database import rolls back columns when a later field fails", {
   connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
   on.exit(DBI::dbDisconnect(connection), add = TRUE)
@@ -178,4 +265,28 @@ testthat::test_that("merge requires a unique key and an explicit choice for each
   testthat::expect_error(prepare_import_merge(connection, duplicate_import, "participant_code"), "unique")
   plan <- prepare_import_merge(connection, conflicting_import, "participant_code")
   testthat::expect_error(apply_import_merge(connection, plan), "Arbitre chaque conflit")
+})
+
+testthat::test_that("merge plans are rejected when the database changed after comparison", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "participant_code", "text")
+  add_typed_column(connection, "age", "integer")
+  DBI::dbExecute(
+    connection,
+    "INSERT INTO collection_records (id, created_at, payload, participant_code, age) VALUES ('row-existing', CURRENT_TIMESTAMP, '{}', 'P001', 30)"
+  )
+  imported <- data.frame(participant_code = "P001", age = "31", stringsAsFactors = FALSE)
+  plan <- prepare_import_merge(connection, imported, "participant_code")
+  DBI::dbExecute(connection, "UPDATE collection_records SET age = 45 WHERE id = 'row-existing'")
+
+  testthat::expect_error(
+    apply_import_merge(connection, plan, "imported"),
+    "La base a changé depuis la comparaison"
+  )
+  testthat::expect_equal(
+    DBI::dbGetQuery(connection, "SELECT age FROM collection_records WHERE id = 'row-existing'")$age,
+    45L
+  )
 })
