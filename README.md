@@ -46,7 +46,7 @@ Cette étape prépare les évolutions suivantes : définir le formulaire de recu
 ├── data/
 │   └── .gitkeep                   # Dossier de la base SQLite locale
 ├── exports/
-│   └── .gitkeep                   # Copies CSV locales, non versionnées
+│   └── .gitkeep                   # Exports locaux, non versionnés
 ├── shiny/
 │   ├── app.R                     # Application exécutée par le serveur local
 │   └── run_app.R                 # Runner du processus R indépendant
@@ -61,7 +61,7 @@ Depuis la racine du projet, dans R :
 source("scripts/install_dependencies.R")
 ```
 
-Le script installe les packages nécessaires à l'application (`shiny`, `DT`, `DBI`, `RSQLite`, `yaml`) et au développement (`testthat`). Le lanceur propose également l'installation des dépendances d'exécution si elles sont absentes.
+Le script installe les packages nécessaires à l'application (`shiny`, `DT`, `DBI`, `RSQLite`, `yaml`, `writexl`) et au développement (`testthat`). Le lanceur propose également l'installation des dépendances d'exécution si elles sont absentes.
 
 ## Base de données
 
@@ -82,9 +82,9 @@ SQLite enregistre la base dans un fichier local. Le dossier parent est créé au
 
 Au démarrage, l'application crée les tables `app_metadata`, `collection_records`, `column_definitions` et `category_dictionary`. `collection_records` contient un identifiant, une date de création, un payload et les colonnes physiques définies par l'utilisateur. `column_definitions` conserve les types métier, noms logiques, formules et états masqués ; `category_dictionary` conserve les codes et libellés catégoriels. Les identifiants internes stables permettent aux formules et dictionnaires de suivre un champ même s'il est renommé ou masqué.
 
-L'onglet **Base de données** présente les observations dans un tableur interactif (tri, recherche globale, filtres par colonne et pagination). Le bouton CSV télécharge l'instantané dans le navigateur et en archive une copie horodatée dans `exports/`. Le navigateur garde le contrôle de son propre dossier de téléchargement ; l'application ne peut pas imposer un chemin sur l'ordinateur client. Les variables dérivées sont calculées à la lecture. La colonne technique `payload` est exclue de cette vue et de l'export ; l'identifiant et la date restent visibles. Un double-clic sur un en-tête de variable ouvre l'onglet **Gestion des variables**, préselectionne le champ et charge son nom dans le formulaire de renommage ; pour un champ catégoriel ou dérivé, le dictionnaire ou la formule correspondante est aussi sélectionné. Les colonnes système ne sont pas modifiables depuis ce raccourci.
+L'onglet **Base de données** présente les observations dans un tableur interactif (tri, recherche globale, filtres par colonne et pagination). Les boutons d'export proposent les formats CSV, Excel (`.xlsx`) et data frame R (`.rds`). Chaque export est téléchargé dans le navigateur et archivé avec un nom horodaté dans `exports/`. Le navigateur garde le contrôle de son propre dossier de téléchargement ; l'application ne peut pas imposer un chemin sur l'ordinateur client. Le fichier `.rds` se recharge dans R avec `readRDS("recueil-....rds")`. Les variables dérivées sont calculées à la lecture. La colonne technique `payload` est exclue de cette vue et des exports ; l'identifiant et la date restent visibles. Un double-clic sur un en-tête de variable ouvre l'onglet **Gestion des variables**, préselectionne le champ et charge son nom dans le formulaire de renommage ; pour un champ catégoriel ou dérivé, le dictionnaire ou la formule correspondante est aussi sélectionné. Les colonnes système ne sont pas modifiables depuis ce raccourci.
 
-Les archives CSV du dossier `exports/` sont ignorées par Git car elles peuvent contenir des données de recherche. Le dossier sert uniquement de copie côté serveur pour faciliter la reprise locale.
+Les archives du dossier `exports/` sont ignorées par Git car elles peuvent contenir des données de recherche. Le dossier sert uniquement de copie côté serveur pour faciliter la reprise locale.
 
 L'onglet **Gestion des variables** présente les champs actifs et masqués dans des tableaux indiquant leur nom, leur type, leur nature et, pour les variables dérivées, leur formule. Il permet :
 

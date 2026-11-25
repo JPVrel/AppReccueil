@@ -4,6 +4,8 @@ testthat::test_that("the app exposes a central spreadsheet tab and management ta
   testthat::expect_match(ui_html, "Base de données")
   testthat::expect_match(ui_html, "database_spreadsheet")
   testthat::expect_match(ui_html, "download_database_csv")
+  testthat::expect_match(ui_html, "download_database_xlsx")
+  testthat::expect_match(ui_html, "download_database_rds")
   testthat::expect_match(ui_html, "Gestion des variables")
   testthat::expect_match(ui_html, "application_tabs")
 })

@@ -4,25 +4,85 @@ database_spreadsheet_data <- function(connection) {
   records[, setdiff(names(records), "payload"), drop = FALSE]
 }
 
-write_database_spreadsheet_csv <- function(connection, file) {
+neutralize_csv_formulas <- function(records) {
+  character_columns <- names(records)[vapply(records, is.character, logical(1))]
+
+  for (column in character_columns) {
+    value <- records[[column]]
+    formula_like <- !is.na(value) & grepl("^[[:space:]]*[=+@-]", value)
+    value[formula_like] <- paste0("'", value[formula_like])
+    records[[column]] <- value
+  }
+
+  records
+}
+
+write_database_spreadsheet <- function(connection, file, format = c("csv", "xlsx", "rds")) {
+  format <- match.arg(format)
   records <- if (is.null(connection)) empty_database_spreadsheet() else database_spreadsheet_data(connection)
-  utils::write.csv(records, file, row.names = FALSE, na = "", fileEncoding = "UTF-8")
+
+  switch(
+    format,
+    csv = utils::write.csv(
+      neutralize_csv_formulas(records),
+      file,
+      row.names = FALSE,
+      na = "",
+      fileEncoding = "UTF-8"
+    ),
+    xlsx = writexl::write_xlsx(records, path = file),
+    rds = saveRDS(records, file)
+  )
   invisible(file)
+}
+
+write_database_spreadsheet_csv <- function(connection, file) {
+  write_database_spreadsheet(connection, file, "csv")
 }
 
 database_spreadsheet_export_dir <- function(project_dir) {
   file.path(project_dir, "exports")
 }
 
-next_spreadsheet_export_path <- function(export_dir, export_time = Sys.time()) {
+reserve_spreadsheet_export_path <- function(path) {
+  lock_dir <- paste0(path, ".lock")
+  if (!dir.create(lock_dir, showWarnings = FALSE)) {
+    if (dir.exists(lock_dir) || file.exists(path)) {
+      return(FALSE)
+    }
+    stop("Le chemin d'export ne peut pas être réservé.")
+  }
+  on.exit(unlink(lock_dir, recursive = TRUE), add = TRUE)
+
+  if (file.exists(path)) {
+    return(FALSE)
+  }
+
+  reserved <- file.create(path)
+  if (!reserved && !file.exists(path)) {
+    stop("Le fichier d'export ne peut pas être créé.")
+  }
+  reserved
+}
+
+next_spreadsheet_export_path <- function(
+  export_dir,
+  export_time = Sys.time(),
+  format = c("csv", "xlsx", "rds")
+) {
+  format <- match.arg(format)
   dir.create(export_dir, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(export_dir)) {
+    stop("Le dossier d'exports ne peut pas être créé.")
+  }
+
   timestamp <- format(export_time, "%Y%m%d-%H%M%S", tz = "UTC")
   base_name <- paste0("recueil-", timestamp)
-  candidate <- file.path(export_dir, paste0(base_name, ".csv"))
+  candidate <- file.path(export_dir, paste0(base_name, ".", format))
   suffix <- 2L
 
-  while (file.exists(candidate)) {
-    candidate <- file.path(export_dir, paste0(base_name, "-", suffix, ".csv"))
+  while (!reserve_spreadsheet_export_path(candidate)) {
+    candidate <- file.path(export_dir, paste0(base_name, "-", suffix, ".", format))
     suffix <- suffix + 1L
   }
 
@@ -37,6 +97,45 @@ archive_database_spreadsheet_csv <- function(
   export_path <- next_spreadsheet_export_path(export_dir, export_time)
   write_database_spreadsheet_csv(connection, export_path)
   export_path
+}
+
+archive_database_spreadsheet <- function(
+  connection,
+  export_dir,
+  format = c("csv", "xlsx", "rds"),
+  export_time = Sys.time()
+) {
+  format <- match.arg(format)
+  export_path <- next_spreadsheet_export_path(export_dir, export_time, format)
+  write_database_spreadsheet(connection, export_path, format)
+  export_path
+}
+
+database_spreadsheet_download_handler <- function(connection, export_dir, format) {
+  last_export_name <- shiny::reactiveVal(NULL)
+  format <- match.arg(format, c("csv", "xlsx", "rds"))
+
+  shiny::downloadHandler(
+    filename = function() {
+      export_path <- next_spreadsheet_export_path(export_dir, format = format)
+      export_name <- basename(export_path)
+      last_export_name(export_name)
+      export_name
+    },
+    content = function(file) {
+      export_name <- shiny::isolate(last_export_name())
+      if (is.null(export_name) || !nzchar(export_name)) {
+        export_path <- next_spreadsheet_export_path(export_dir, format = format)
+        export_name <- basename(export_path)
+      }
+
+      archive_path <- file.path(export_dir, export_name)
+      write_database_spreadsheet(connection, archive_path, format)
+      if (!file.copy(archive_path, file, overwrite = TRUE)) {
+        stop("Le fichier d'export ne peut pas être copié vers le téléchargement.")
+      }
+    }
+  )
 }
 
 empty_database_spreadsheet <- function() {
@@ -82,7 +181,17 @@ database_spreadsheet_ui <- function() {
     "Base de données",
     value = "spreadsheet",
     shiny::p("Vue centralisée des observations. Double-clique sur un en-tête pour ouvrir les paramètres de cette variable."),
-    shiny::downloadButton("download_database_csv", "Exporter en CSV"),
+    shiny::div(
+      class = "btn-toolbar",
+      role = "toolbar",
+      shiny::div(
+        class = "btn-group",
+        role = "group",
+        shiny::downloadButton("download_database_csv", "CSV"),
+        shiny::downloadButton("download_database_xlsx", "Excel (.xlsx)"),
+        shiny::downloadButton("download_database_rds", "R data frame (.rds)")
+      )
+    ),
     DT::DTOutput("database_spreadsheet"),
     shiny::textOutput("spreadsheet_status")
   )

@@ -1,6 +1,7 @@
 .DS_Store
 data/*.sqlite
-exports/*.csv
+exports/*
+!exports/.gitkeep
 .Rproj.user/
 .Rhistory
 .RData

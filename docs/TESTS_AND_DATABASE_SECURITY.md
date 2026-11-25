@@ -6,6 +6,10 @@ Ce document garde une trace des validations effectuées et des mesures à prévo
 
 | Date | Périmètre | Résultat |
 | --- | --- | --- |
+| 2026-11-25 | Exports CSV, Excel et data frame R | Écriture et archivage testés pour CSV, XLSX et RDS ; valeurs dérivées présentes, colonnes masquées et `payload` absents. Le CSV neutralise les valeurs texte commençant par une formule. Dépendance `writexl` ajoutée aux packages d'exécution. |
+| 2026-11-25 | Réservation des archives | Noms créés via verrou de répertoire atomique ; test parallèle de réservations simultanées sans collision. |
+| 2026-11-25 | Exports depuis le navigateur | Les trois endpoints répondent HTTP 200 avec un nom d'archive horodaté ; XLSX vérifié comme classeur ZIP valide, RDS relu par `readRDS()` comme data frame. |
+| 2026-11-25 | Suite complète après audit des exports | 88 assertions réussies, 0 échec ; aucun diagnostic R dans les modules et tests modifiés. |
 | 2026-11-25 | Suite automatisée après ajout du dossier d'exports | 87 assertions réussies, 0 échec. |
 | 2026-11-25 | Base vide dans le navigateur | Session fraîche sur `8000` : WebSocket connecté, table vide avec les colonnes système visibles, bouton CSV actif et endpoint d'export vérifié. |
 | 2026-11-25 | Régression après correction de l'initialisation Shiny et des opérations SQL | 75 assertions réussies ; la session réelle a été vérifiée sur navigateur : WebSocket connecté, overlay absent, onglet BDD accessible. |
@@ -23,7 +27,7 @@ Ce document garde une trace des validations effectuées et des mesures à prévo
 - Variables dérivées : compatibilité des types, comparateurs, valeurs manquantes, divisions par zéro, chaînage et cycles.
 - Connexion et déconnexion DBI, configuration locale/distante et dépendances.
 - Contrôles Shiny, table de variables, callbacks et affichage des erreurs.
-- Tableur central : lignes vides ou renseignées, colonnes dérivées, sélection par en-tête et téléchargement CSV.
+- Tableur central : lignes vides ou renseignées, colonnes dérivées, sélection par en-tête et téléchargements CSV, XLSX et RDS.
 - Double-clic navigateur sur les colonnes stockées, catégorielles, dérivées et système ; les champs système sont refusés.
 - Recherche globale avec résultat et sans résultat, pagination au-delà de 25 lignes, et rafraîchissement après renommage.
 
@@ -41,8 +45,8 @@ testthat::test_dir("tests/testthat")
 - Les changements de code catégoriel, réaffectations et changements de schéma sont transactionnels.
 - Le masquage conserve les colonnes et valeurs ; il n'existe pas de suppression physique depuis l'interface.
 - Les secrets d'une base distante sont attendus via des variables d'environnement, pas dans le dépôt.
-- La vue tableur et son export CSV omettent `payload`, colonne technique non nécessaire à l'utilisateur.
-- Les archives CSV côté serveur sont conservées dans `exports/`, mais ignorées par Git pour ne pas versionner des observations.
+- La vue tableur et ses exports omettent `payload`, colonne technique non nécessaire à l'utilisateur.
+- Les archives côté serveur sont conservées dans `exports/`, mais ignorées par Git pour ne pas versionner des observations.
 - L'application est actuellement locale et ne possède pas d'authentification ni de rôles.
 
 ## À sécuriser avant une mise en ligne
@@ -59,7 +63,7 @@ testthat::test_dir("tests/testthat")
 ## Parcours navigateur à valider pour l'onglet tableur
 
 - Table vide : en-têtes de base présents, message de table vide, aucun voile Shiny.
-- Table alimentée : lignes, tri, filtres globaux/par colonne, pagination et export CSV.
+- Table alimentée : lignes, tri, filtres globaux/par colonne, pagination et exports CSV, XLSX et RDS.
 - Double-clic sur un champ modifiable : passage à Gestion des variables, choix et nom préremplis.
 - Double-clic sur une variable catégorielle ou dérivée : dictionnaire ou formule correspondante chargés.
 - Double-clic sur une colonne technique, en-tête inconnu ou champ masqué : aucune édition, message clair.

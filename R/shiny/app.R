@@ -65,27 +65,20 @@ build_app_server <- function(database_config = NULL, export_dir = NULL) {
       }
     })
 
-    last_export_name <- shiny::reactiveVal(NULL)
-    output$download_database_csv <- shiny::downloadHandler(
-      filename = function() {
-        export_path <- next_spreadsheet_export_path(session_export_dir)
-        export_name <- basename(export_path)
-        last_export_name(export_name)
-        export_name
-      },
-      content = function(file) {
-        export_name <- shiny::isolate(last_export_name())
-        if (is.null(export_name) || !nzchar(export_name)) {
-          export_path <- next_spreadsheet_export_path(session_export_dir)
-          export_name <- basename(export_path)
-        }
-
-        archive_path <- file.path(session_export_dir, export_name)
-        write_database_spreadsheet_csv(connection, archive_path)
-        if (!file.copy(archive_path, file, overwrite = TRUE)) {
-          stop("Le fichier CSV ne peut pas être copié vers le téléchargement.")
-        }
-      }
+    output$download_database_csv <- database_spreadsheet_download_handler(
+      connection,
+      session_export_dir,
+      "csv"
+    )
+    output$download_database_xlsx <- database_spreadsheet_download_handler(
+      connection,
+      session_export_dir,
+      "xlsx"
+    )
+    output$download_database_rds <- database_spreadsheet_download_handler(
+      connection,
+      session_export_dir,
+      "rds"
     )
 
     database_spreadsheet_server(input, output, connection, database_refresh)
