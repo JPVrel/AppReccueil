@@ -6,12 +6,26 @@ record_entry_ui <- function() {
   shiny::tabPanel(
     "Questionnaire",
     value = "record_entry",
-    shiny::h3("Questionnaire de recueil"),
-    shiny::p("Saisis une nouvelle observation ou modifie une ligne existante ouverte depuis le tableur."),
-    shiny::textInput("record_id_value", "ID de l'observation"),
-    shiny::uiOutput("record_questionnaire_fields"),
-    shiny::uiOutput("record_form_actions"),
-    shiny::textOutput("record_entry_status")
+    shiny::h2(class = "recueil-page-title", "Questionnaire de recueil"),
+    shiny::p(class = "recueil-page-subtitle", "Créez une nouvelle observation ou modifiez celle sélectionnée dans le tableur."),
+    shiny::div(
+      class = "recueil-grid",
+      shiny::div(
+        class = "recueil-card recueil-span-12",
+        shiny::h3("Identification"),
+        shiny::textInput("record_id_value", "ID de l'observation", placeholder = "Généré automatiquement si laissé vide")
+      ),
+      shiny::div(
+        class = "recueil-card recueil-span-12",
+        shiny::h3("Réponses"),
+        shiny::uiOutput("record_questionnaire_fields")
+      ),
+      shiny::div(
+        class = "recueil-card recueil-span-12",
+        shiny::div(class = "recueil-action-bar", shiny::uiOutput("record_form_actions")),
+        shiny::div(class = "recueil-status", shiny::textOutput("record_entry_status"))
+      )
+    )
   )
 }
 
@@ -19,25 +33,28 @@ deleted_items_ui <- function() {
   shiny::tabPanel(
     "Éléments supprimés",
     value = "deleted_items",
-    shiny::h3("Colonnes masquées"),
-    shiny::tableOutput("deleted_columns_table"),
-    shiny::selectInput("deleted_column_id", "Colonne à restaurer", choices = character()),
-    shiny::textInput(
-      "deleted_column_new_name",
-      "Nouvelle entête si le nom d'origine est déjà pris (facultatif)"
+    shiny::h2(class = "recueil-page-title", "Éléments supprimés"),
+    shiny::p(class = "recueil-page-subtitle", "Retrouvez les variables ou observations masquées et restaurez-les sous leur nom ou avec un identifiant alternatif."),
+    shiny::div(
+      class = "recueil-grid",
+      shiny::div(
+        class = "recueil-card recueil-span-6",
+        shiny::h3("Variables masquées"),
+        shiny::tableOutput("deleted_columns_table"),
+        shiny::selectInput("deleted_column_id", "Colonne à restaurer", choices = character()),
+        shiny::textInput("deleted_column_new_name", "Nouvelle entête si nécessaire", placeholder = "Optionnel : seulement en cas de collision"),
+        shiny::actionButton("restore_deleted_column", "Restaurer la colonne", class = "btn-primary")
+      ),
+      shiny::div(
+        class = "recueil-card recueil-span-6",
+        shiny::h3("Observations masquées"),
+        shiny::tableOutput("deleted_records_table"),
+        shiny::selectInput("deleted_record_id", "Observation à restaurer", choices = character()),
+        shiny::textInput("deleted_record_new_id", "Nouvel ID si nécessaire", placeholder = "Optionnel : seulement en cas de collision"),
+        shiny::actionButton("restore_deleted_record", "Restaurer l'observation", class = "btn-primary")
+      )
     ),
-    shiny::actionButton("restore_deleted_column", "Restaurer la colonne"),
-    shiny::hr(),
-    shiny::h3("Observations masquées"),
-    shiny::tableOutput("deleted_records_table"),
-    shiny::selectInput("deleted_record_id", "Observation à restaurer", choices = character()),
-    shiny::textInput(
-      "deleted_record_new_id",
-      "Nouvel ID si l'ID d'origine est déjà pris (facultatif)"
-    ),
-    shiny::actionButton("restore_deleted_record", "Restaurer l'observation"),
-    shiny::hr(),
-    shiny::textOutput("deleted_items_status")
+    shiny::div(class = "recueil-status", shiny::textOutput("deleted_items_status"))
   )
 }
 
@@ -62,39 +79,42 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
     }
 
     definitions <- active_record_field_definitions(active)
-    shiny::tagList(lapply(seq_len(nrow(definitions)), function(row_index) {
-      definition <- definitions[row_index, , drop = FALSE]
-      field_name <- definition$name[[1]]
-      input_id <- record_field_input_id(field_name)
-      data_type <- definition$data_type[[1]]
+    shiny::div(
+      class = "recueil-field-grid",
+      shiny::tagList(lapply(seq_len(nrow(definitions)), function(row_index) {
+        definition <- definitions[row_index, , drop = FALSE]
+        field_name <- definition$name[[1]]
+        input_id <- record_field_input_id(field_name)
+        data_type <- definition$data_type[[1]]
 
-      if (identical(data_type, "categorical")) {
-        categories <- list_category_entries(active, definition$column_id[[1]])
-        choices <- c(
-          stats::setNames("", ""),
-          stats::setNames(categories$code, paste0(categories$label, " (", categories$code, ")"))
-        )
-        return(shiny::selectInput(input_id, field_name, choices = choices))
-      }
-      if (identical(data_type, "boolean")) {
-        return(shiny::selectInput(
-          input_id,
-          field_name,
-          choices = stats::setNames(c("", "TRUE", "FALSE"), c("", "Oui", "Non"))
-        ))
-      }
-      if (identical(data_type, "date")) {
-        return(shiny::dateInput(
-          input_id,
-          field_name,
-          value = NULL,
-          language = "fr",
-          format = "yyyy-mm-dd",
-          weekstart = 1
-        ))
-      }
-      shiny::textInput(input_id, field_name, value = "")
-    }))
+        if (identical(data_type, "categorical")) {
+          categories <- list_category_entries(active, definition$column_id[[1]])
+          choices <- c(
+            stats::setNames("", ""),
+            stats::setNames(categories$code, paste0(categories$label, " (", categories$code, ")"))
+          )
+          return(shiny::selectInput(input_id, field_name, choices = choices))
+        }
+        if (identical(data_type, "boolean")) {
+          return(shiny::selectInput(
+            input_id,
+            field_name,
+            choices = stats::setNames(c("", "TRUE", "FALSE"), c("", "Oui", "Non"))
+          ))
+        }
+        if (identical(data_type, "date")) {
+          return(shiny::dateInput(
+            input_id,
+            field_name,
+            value = NULL,
+            language = "fr",
+            format = "yyyy-mm-dd",
+            weekstart = 1
+          ))
+        }
+        shiny::textInput(input_id, field_name, value = "")
+      }))
+    )
   })
 
   output$record_form_actions <- shiny::renderUI({
@@ -223,12 +243,32 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
       record_status("Ouvre une observation avant de la masquer.")
       return()
     }
+    shiny::showModal(shiny::modalDialog(
+      title = "Masquer cette observation ?",
+      shiny::p(paste("L'observation", record_id, "sera masquée, pas supprimée définitivement.")),
+      shiny::p(class = "recueil-help", "Elle restera disponible dans Éléments supprimés pour restauration."),
+      footer = shiny::tagList(
+        shiny::actionButton("confirm_mask_record", "Masquer", class = "btn-warning"),
+        shiny::modalButton("Annuler")
+      ),
+      easyClose = FALSE
+    ))
+  })
+
+  shiny::observeEvent(input$confirm_mask_record, {
+    active <- current_connection()
+    record_id <- editing_record_id()
+    if (is.null(active) || is.null(record_id)) {
+      shiny::removeModal()
+      return()
+    }
     tryCatch({
       mask_collection_record(active, record_id)
       editing_record_id(NULL)
       refresh_trigger(refresh_trigger() + 1L)
       record_status(paste("Observation", record_id, "masquée et restaurable depuis Éléments supprimés."))
       form_generation(form_generation() + 1L)
+      shiny::removeModal()
     }, error = function(condition) {
       record_status(conditionMessage(condition))
     })

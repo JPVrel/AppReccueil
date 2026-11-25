@@ -446,6 +446,7 @@ testthat::test_that("the questionnaire creates, edits from row double-click, and
     testthat::expect_equal(read_collection_records(connection)$participant_code, "P002")
 
     session$setInputs(mask_record = 1)
+    session$setInputs(confirm_mask_record = 1)
     testthat::expect_equal(list_deleted_collection_records(connection)$id, "row-edited")
     testthat::expect_equal(nrow(read_collection_records(connection)), 0L)
   })

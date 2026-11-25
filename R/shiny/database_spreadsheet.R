@@ -264,26 +264,30 @@ database_spreadsheet_ui <- function() {
   shiny::tabPanel(
     "Base de données",
     value = "spreadsheet",
-    shiny::p("Vue centralisée des observations. Double-clique sur un en-tête pour ouvrir les paramètres de cette variable."),
+    shiny::h2(class = "recueil-page-title", "Observations"),
+    shiny::p(class = "recueil-page-subtitle", "Double-cliquez sur une ligne pour modifier l'observation ou sur un en-tête pour gérer sa variable."),
     shiny::div(
-      class = "btn-toolbar",
-      role = "toolbar",
+      class = "recueil-grid",
       shiny::div(
-        class = "btn-group",
-        role = "group",
-        shiny::downloadButton("download_database_csv", "CSV"),
-        shiny::downloadButton("download_database_xlsx", "Excel (.xlsx)"),
-        shiny::downloadButton("download_database_rds", "R data frame (.rds)")
+        class = "recueil-card recueil-span-8",
+        shiny::div(class = "recueil-status", shiny::textOutput("spreadsheet_status"))
       ),
-      shiny::passwordInput(
-        "database_export_password",
-        "Mot de passe pour chiffrer l'export (facultatif, 12 caractères minimum si utilisé)"
-      ),
-      shiny::p("Si ce champ reste vide, le fichier sera exporté sans chiffrement.")
+      shiny::div(
+        class = "recueil-card recueil-span-4",
+        shiny::h4("Exporter"),
+        shiny::div(
+          class = "recueil-export-actions",
+          shiny::downloadButton("download_database_csv", "CSV"),
+          shiny::downloadButton("download_database_xlsx", "Excel"),
+          shiny::downloadButton("download_database_rds", "RDS")
+        ),
+        shiny::passwordInput("database_export_password", "Mot de passe d'export (facultatif)", placeholder = "12 caractères minimum"),
+        shiny::p(class = "recueil-help", "Vide = fichier en clair. Un mot de passe crée un export chiffré.")
+      )
     ),
     shiny::div(
-      style = "max-height: 70vh; overflow: auto;",
-      shiny::tableOutput("database_spreadsheet")
+      class = "recueil-card recueil-span-12",
+      shiny::div(class = "recueil-table-scroll", shiny::tableOutput("database_spreadsheet"))
     ),
     shiny::tags$script(shiny::HTML("
       $(document).on('dblclick', '#database_spreadsheet tbody tr', function() {
@@ -294,8 +298,7 @@ database_spreadsheet_ui <- function() {
         var headerName = $(this).text().trim();
         if (headerName) Shiny.setInputValue('database_spreadsheet_header_dblclick', headerName, {priority: 'event'});
       });
-    ")),
-    shiny::textOutput("spreadsheet_status")
+    "))
   )
 }
 

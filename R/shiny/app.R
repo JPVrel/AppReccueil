@@ -2,7 +2,17 @@
 # une évolution du formulaire sans modifier le lanceur local.
 build_app_ui <- function() {
   shiny::fluidPage(
-    shiny::titlePanel("Application de recueil de données"),
+    shiny::tags$head(
+      shiny::tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
+      shiny::tags$link(rel = "stylesheet", href = "app.css")
+    ),
+    shiny::div(
+      class = "app-header",
+      shiny::div(
+        shiny::h1("Application de recueil"),
+        shiny::p(class = "app-subtitle", "Préparez, consultez et restaurez vos observations")
+      )
+    ),
     shiny::tabsetPanel(
       id = "application_tabs",
       database_home_ui(),

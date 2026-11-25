@@ -192,6 +192,7 @@ testthat::test_that("the management UI handles types, dictionaries, formulas, an
     testthat::expect_equal(updated_calculation$score_change, 13)
 
     session$setInputs(column_to_hide = "cohort", hide_column = 1)
+    session$setInputs(confirm_hide_column = 1)
     testthat::expect_match(output$column_status, "Colonne masquée")
     testthat::expect_true(
       list_column_definitions(external_connection, include_hidden = TRUE)$is_hidden[

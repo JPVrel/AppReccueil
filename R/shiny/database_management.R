@@ -3,46 +3,49 @@ database_management_ui <- function() {
   shiny::tabPanel(
     "Gestion des variables",
     value = "column_manager",
-    shiny::fluidRow(
-      shiny::column(
-        width = 4,
-        shiny::h3("Ajouter une colonne"),
+    shiny::h2(class = "recueil-page-title", "Gestion des variables"),
+    shiny::p(class = "recueil-page-subtitle", "Structurez les champs, gérez les catégories et créez des variables calculées."),
+    shiny::div(
+      class = "recueil-grid",
+      shiny::div(
+        class = "recueil-card recueil-span-6",
+        shiny::h3("Ajouter une variable"),
         shiny::textInput("new_column_name", "Nom de la colonne"),
         shiny::selectInput(
           "new_column_type",
           "Type",
-          choices = c(
-            "Texte" = "text",
-            "Nombre entier" = "integer",
-            "Nombre décimal" = "real",
-            "Date" = "date",
-            "Catégorielle" = "categorical"
-          )
+          choices = c("Texte"="text","Nombre entier"="integer","Nombre décimal"="real","Date"="date","Catégorielle"="categorical")
         ),
-        shiny::actionButton("add_column", "Ajouter")
+        shiny::actionButton("add_column", "Ajouter", class = "btn-primary")
       ),
-      shiny::column(
-        width = 4,
-        shiny::h3("Colonnes actives"),
-        shiny::tableOutput("active_variables_table"),
-        shiny::selectInput("column_to_rename", "Renommer", choices = character()),
-        shiny::textInput("renamed_column_name", "Nouveau nom"),
-        shiny::actionButton("rename_column", "Renommer"),
-        shiny::selectInput("column_to_hide", "Masquer", choices = character()),
-        shiny::actionButton("hide_column", "Masquer la colonne")
+      shiny::div(
+        class = "recueil-card recueil-span-6",
+        shiny::h3("Renommer ou masquer"),
+        shiny::selectInput("column_to_rename", "Variable à renommer", choices = character()),
+        shiny::textInput("renamed_column_name", "Nouvelle entête"),
+        shiny::div(class = "recueil-action-bar", shiny::actionButton("rename_column", "Renommer")),
+        shiny::tags$hr(),
+        shiny::selectInput("column_to_hide", "Variable à masquer", choices = character()),
+        shiny::div(class = "recueil-action-bar", shiny::actionButton("hide_column", "Masquer", class = "btn-warning"))
       ),
-      shiny::column(
-        width = 4,
-        shiny::h3("Colonnes masquées"),
+      shiny::div(
+        class = "recueil-card recueil-span-6",
+        shiny::h3("Variables actives"),
+        shiny::tableOutput("active_variables_table")
+      ),
+      shiny::div(
+        class = "recueil-card recueil-span-6",
+        shiny::h3("Variables masquées"),
         shiny::tableOutput("archived_variables_table"),
         shiny::selectInput("column_to_restore", "Restaurer", choices = character()),
-        shiny::actionButton("restore_column", "Restaurer la colonne")
+        shiny::actionButton("restore_column", "Restaurer la variable", class = "btn-primary")
       )
     ),
     shiny::hr(),
-    shiny::fluidRow(
-      shiny::column(
-        width = 6,
+    shiny::div(
+      class = "recueil-grid",
+      shiny::div(
+        class = "recueil-card recueil-span-6",
         shiny::h3("Dictionnaire catégoriel"),
         shiny::selectInput("dictionary_column_id", "Colonne catégorielle", choices = character()),
         shiny::tableOutput("category_entries"),
@@ -57,8 +60,8 @@ database_management_ui <- function() {
         shiny::selectInput("replacement_category", "Réaffecter vers", choices = character()),
         shiny::actionButton("remove_category", "Réaffecter et retirer")
       ),
-      shiny::column(
-        width = 6,
+      shiny::div(
+        class = "recueil-card recueil-span-6",
         shiny::h3("Variable dérivée"),
         shiny::p("Choisis deux colonnes. Les résultats sont calculés dynamiquement ; les valeurs manquantes et une division par zéro donnent un résultat manquant."),
         shiny::textInput("derived_column_name", "Nom de la variable dérivée"),
@@ -103,8 +106,7 @@ database_management_ui <- function() {
         shiny::actionButton("update_derived_formula", "Mettre à jour la formule")
       )
     ),
-    shiny::hr(),
-    shiny::textOutput("column_status")
+    shiny::div(class = "recueil-status", shiny::textOutput("column_status"))
   )
 }
 
@@ -410,7 +412,6 @@ database_management_server <- function(input, output, session, connection, refre
     category_table_data(categories)
   }, striped = TRUE, bordered = TRUE, hover = TRUE, rownames = FALSE)
   output$column_status <- shiny::renderText(column_status())
-  output$spreadsheet_status <- shiny::renderText(column_status())
 
   refresh_controls()
   shiny::observeEvent(refresh_trigger(), refresh_controls(), ignoreInit = TRUE)
@@ -435,6 +436,25 @@ database_management_server <- function(input, output, session, connection, refre
     )
   })
   shiny::observeEvent(input$hide_column, {
+    column_id <- tryCatch(current_column_id(input$column_to_hide), error = function(condition) NULL)
+    if (is.null(column_id)) {
+      column_status("Sélectionne une variable active à masquer.")
+      return()
+    }
+    column_name <- get_column_definition(current_connection(), column_id)$name[[1]]
+    shiny::showModal(shiny::modalDialog(
+      title = "Masquer cette variable ?",
+      shiny::p(paste("La variable", column_name, "sera masquée et restera disponible pour restauration.")),
+      footer = shiny::tagList(
+        shiny::actionButton("confirm_hide_column", "Masquer", class = "btn-warning"),
+        shiny::modalButton("Annuler")
+      ),
+      easyClose = FALSE
+    ))
+  })
+
+  shiny::observeEvent(input$confirm_hide_column, {
+    shiny::removeModal()
     run_action(
       function() hide_column(current_connection(), current_column_id(input$column_to_hide)),
       function(...) "Colonne masquée. Elle reste récupérable."

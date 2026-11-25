@@ -2,23 +2,35 @@ database_home_ui <- function() {
   shiny::tabPanel(
     "Accueil",
     value = "home",
-    shiny::h3("Base de données locale"),
-    shiny::textOutput("database_overview"),
-    shiny::uiOutput("open_database_controls"),
-    shiny::uiOutput("create_database_controls"),
-    shiny::hr(),
-    shiny::h3("Importer des données"),
-    shiny::fileInput(
-      "import_file",
-      "Choisir un fichier CSV, Excel ou RDS (ou un export chiffré .enc)",
-      accept = c(".csv", ".xlsx", ".rds", ".enc")
-    ),
-    shiny::uiOutput("import_file_password_ui"),
-    shiny::uiOutput("import_rds_trust_ui"),
-    shiny::uiOutput("import_file_status"),
-    shiny::uiOutput("import_type_controls"),
-    shiny::uiOutput("import_action_controls"),
-    shiny::textOutput("database_workflow_status")
+    shiny::h2(class = "recueil-page-title", "Votre espace de données"),
+    shiny::p(class = "recueil-page-subtitle", "Ouvrez une base existante, créez un nouveau recueil ou importez des observations."),
+    shiny::div(class = "recueil-status", shiny::textOutput("database_overview")),
+    shiny::div(
+      class = "recueil-grid",
+      shiny::div(
+        class = "recueil-card recueil-span-6",
+        shiny::h3("Bases et sécurité"),
+        shiny::p(class = "recueil-help", "Ouvrez une base locale existante ou créez un nouveau recueil."),
+        shiny::uiOutput("open_database_controls"),
+        shiny::uiOutput("create_database_controls")
+      ),
+      shiny::div(
+        class = "recueil-card recueil-span-6",
+        shiny::h3("Importer des données"),
+        shiny::p(class = "recueil-help", "CSV, Excel ou RDS : les types seront vérifiés avant création ou fusion."),
+        shiny::fileInput(
+          "import_file",
+          "Fichier CSV, Excel, RDS ou export chiffré",
+          accept = c(".csv", ".xlsx", ".rds", ".enc")
+        ),
+        shiny::uiOutput("import_file_password_ui"),
+        shiny::uiOutput("import_rds_trust_ui"),
+        shiny::uiOutput("import_file_status"),
+        shiny::uiOutput("import_type_controls"),
+        shiny::uiOutput("import_action_controls"),
+        shiny::textOutput("database_workflow_status")
+      )
+    )
   )
 }
 

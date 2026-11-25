@@ -68,6 +68,10 @@ Une observation supprimée est masquée, pas effacée. L'onglet **Éléments sup
 
 Les dates sont au format `YYYY-MM-DD`. Les formules sont structurées et ne sont pas exécutées comme du code R libre. Les colonnes techniques `id`, `created_at`, `payload` et `is_deleted` ne sont pas éditables ; `payload` et `is_deleted` sont exclus des vues et exports.
 
+### Interface
+
+L'application utilise une mise en page responsive avec des cartes par tâche, une navigation en onglets et des actions principales mises en évidence. Les écrans étroits regroupent les contrôles en une seule colonne sans débordement horizontal. Les actions de masquage demandent confirmation ; elles restent réversibles depuis **Éléments supprimés**.
+
 ## Données et protection
 
 Une base créée sans mot de passe est un fichier SQLite ordinaire, lisible par toute personne ayant accès au compte et au fichier. Avec un mot de passe, elle est conservée sous forme de coffre AES-256-GCM ; le mot de passe n'est pas enregistré.
