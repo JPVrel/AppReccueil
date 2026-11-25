@@ -12,7 +12,11 @@ database_home_ui <- function() {
         shiny::h3("Bases et sécurité"),
         shiny::p(class = "recueil-help", "Ouvrez une base locale existante ou créez un nouveau recueil."),
         shiny::uiOutput("open_database_controls"),
-        shiny::uiOutput("create_database_controls")
+        shiny::div(
+          class = "recueil-action-bar recueil-secondary-actions",
+          shiny::actionButton("open_create_database_modal", "Créer une nouvelle base", class = "btn-primary"),
+          shiny::actionButton("open_protect_database_modal", "Protéger une base existante")
+        )
       ),
       shiny::div(
         class = "recueil-card recueil-span-6",
@@ -165,17 +169,7 @@ database_home_server <- function(
           "Base locale",
           choices = stats::setNames(unencrypted, basename(unencrypted))
         ),
-        shiny::actionButton("open_plain_database", "Ouvrir sans mot de passe"),
-        shiny::h4("Protéger une base SQLite existante"),
-        shiny::p("Une copie chiffrée sera créée. Le fichier source restera en clair et devra être supprimé séparément après vérification."),
-        shiny::selectInput(
-          "plain_database_to_protect",
-          "Base SQLite à copier",
-          choices = stats::setNames(unencrypted, basename(unencrypted))
-        ),
-        shiny::passwordInput("protect_database_password", "Nouveau mot de passe"),
-        shiny::passwordInput("protect_database_password_confirm", "Confirmer le mot de passe"),
-        shiny::actionButton("protect_database", "Créer une copie chiffrée")
+        shiny::actionButton("open_plain_database", "Ouvrir sans mot de passe")
       ))
     }
     if (length(controls) == 0L) {
@@ -190,11 +184,24 @@ database_home_server <- function(
     }
 
     shiny::tagList(
-      shiny::h4("Créer une autre base"),
       shiny::textInput("new_database_name", "Nom de la base", value = "recueil"),
       shiny::passwordInput("new_database_password", "Mot de passe (facultatif, 12 caractères minimum si utilisé)"),
-      shiny::passwordInput("new_database_password_confirm", "Confirmer le mot de passe"),
-      shiny::actionButton("create_database", "Créer et ouvrir", class = "btn-primary")
+      shiny::passwordInput("new_database_password_confirm", "Confirmer le mot de passe")
+    )
+  })
+
+  output$protect_database_controls <- shiny::renderUI({
+    if (!is.null(vault_state())) {
+      return(NULL)
+    }
+    unencrypted <- list_unencrypted_local_databases(data_dir)
+    if (length(unencrypted) == 0L) {
+      return(shiny::p("Aucune base SQLite claire n'est disponible à protéger."))
+    }
+    shiny::tagList(
+      shiny::selectInput("plain_database_to_protect", "Base SQLite à copier", choices = stats::setNames(unencrypted, basename(unencrypted))),
+      shiny::passwordInput("protect_database_password", "Nouveau mot de passe"),
+      shiny::passwordInput("protect_database_password_confirm", "Confirmer le mot de passe")
     )
   })
 
@@ -493,5 +500,29 @@ database_home_server <- function(
     }, error = function(condition) {
       workflow_status(conditionMessage(condition))
     })
+  })
+
+  shiny::observeEvent(input$open_create_database_modal, {
+    shiny::showModal(shiny::modalDialog(
+      title = "Créer une nouvelle base",
+      shiny::uiOutput("create_database_controls"),
+      footer = shiny::tagList(
+        shiny::actionButton("create_database", "Créer et ouvrir", class = "btn-primary"),
+        shiny::modalButton("Annuler")
+      ),
+      easyClose = FALSE
+    ))
+  })
+
+  shiny::observeEvent(input$open_protect_database_modal, {
+    shiny::showModal(shiny::modalDialog(
+      title = "Protéger une base existante",
+      shiny::uiOutput("protect_database_controls"),
+      footer = shiny::tagList(
+        shiny::actionButton("protect_database", "Créer une copie chiffrée", class = "btn-primary"),
+        shiny::modalButton("Annuler")
+      ),
+      easyClose = FALSE
+    ))
   })
 }

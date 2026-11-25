@@ -126,9 +126,31 @@ h1, h2, h3, h4 {
 }
 
 .recueil-card h4 {
-  margin: 0 0 12px;
-  font-size: 15px;
-  line-height: 1.25;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  margin: 8px 0 4px;
+  padding: 0;
+}
+
+.recueil-card h4:first-child {
+  margin-top: 0;
+}
+
+.recueil-card details.recueil-details {
+  display: block;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+}
+
+.recueil-card details.recueil-details > summary {
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.recueil-card details.recueil-details[open] > summary {
+  margin: 0 0 8px;
 }
 
 .recueil-card hr,
@@ -145,21 +167,117 @@ h1, h2, h3, h4 {
   margin-bottom: 0;
 }
 
-.recueil-grid {
+.recueil-card .shiny-input-container,
+.recueil-card .form-group {
+  margin: 0;
+}
+
+.recueil-card ui,
+.recueil-card > * {
+  box-sizing: border-box;
+}
+
+.recueil-card .shiny-input-container + .shiny-input-container,
+.recueil-card .form-group + .form-group,
+.recueil-card .shiny-input-container + .btn,
+.recueil-card .form-group + .btn {
+  margin-top: 8px;
+}
+
+.recueil-card .btn + .btn,
+.recueil-card .btn + .shiny-input-container,
+.recueil-card .btn + .form-group {
+  margin-top: 8px;
+}
+
+.recueil-card .control-label,
+.recueil-card label {
+  margin: 0 0 4px;
+}
+
+.recueil-card .form-control,
+.recueil-card .selectize-control,
+.recueil-card input,
+.recueil-card select {
+  margin: 0;
+}
+
+.recueil-card .action-button,
+.recueil-card .download-button,
+.recueil-card .btn {
+  margin: 0 8px 12px 0;
+}
+
+.recueil-card .action-button:last-child,
+.recueil-card .download-button:last-child,
+.recueil-card .btn:last-child {
+  margin-right: 0;
+}
+
+.recueil-card h3 + p,
+.recueil-card h4 + p,
+.recueil-card h3 + .recueil-help,
+.recueil-card h4 + .recueil-help {
+  margin-top: 4px;
+}
+
+.recueil-card p {
+  margin-bottom: 12px;
+}
+
+.recueil-card p:last-child {
+  margin-bottom: 0;
+}
+
+.recueil-help {
+  margin: 6px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.recueil-action-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 38px;
+  margin: 0 0 12px;
+}
+
+.recueil-action-bar .btn {
+  margin: 0;
+}
+
+.recueil-action-bar:last-child {
+  margin-bottom: 0;
+}
+
+.recueil-export-actions {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  align-items: start;
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
-.recueil-grid + .recueil-grid {
-  margin-top: 16px;
+.recueil-export-actions .btn {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 8px;
+  font-size: 13px;
 }
 
-.recueil-span-12 { grid-column: span 12; }
-.recueil-span-8 { grid-column: span 8; }
-.recueil-span-6 { grid-column: span 6; }
-.recueil-span-4 { grid-column: span 4; }
+.recueil-secondary-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.recueil-secondary-actions .btn {
+  width: 100%;
+  margin: 0;
+}
 
 .recueil-status {
   margin: 16px 0 0;
@@ -343,6 +461,46 @@ h1, h2, h3, h4 {
   margin-bottom: 10px;
 }
 
+.recueil-details {
+  margin-top: 10px;
+  padding: 10px 12px;
+}
+
+.recueil-details + .recueil-details {
+  margin-top: 8px;
+}
+
+.recueil-details summary {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.recueil-details[open] summary {
+  margin: 0 0 10px;
+}
+
+.recueil-card .shiny-input-container {
+  max-width: 100%;
+}
+
+.recueil-card .shiny-input-container input[type="file"] {
+  max-width: 100%;
+}
+
+.recueil-card .input-group,
+.recueil-card .shiny-file-input-progress,
+.recueil-card .file-input-text {
+  max-width: 100%;
+}
+
+.recueil-card details {
+  max-width: 100%;
+}
+
+.recueil-card details > * {
+  max-width: 100%;
+}
+
 @media (max-width: 900px) {
   .container-fluid { padding: 12px; }
   .app-header { margin: -12px -12px 12px; }
@@ -356,6 +514,9 @@ h1, h2, h3, h4 {
 @media (max-width: 700px) {
   .recueil-field-grid,
   .recueil-export-actions {
+    grid-template-columns: 1fr;
+  }
+  .recueil-secondary-actions {
     grid-template-columns: 1fr;
   }
 }
