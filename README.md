@@ -6,16 +6,15 @@ Application de bureau locale pour créer un recueil de données, importer des fi
 
 ## Télécharger
 
-Choisissez le fichier correspondant au système de votre ordinateur :
+Téléchargez le fichier correspondant à votre ordinateur :
 
-- **Windows** : ouvrir les [builds Windows, Linux et macOS](https://github.com/JPVrel/AppReccueil/actions/workflows/build-portable-releases.yml), puis télécharger l’artefact `AppReccueil-windows` dans le dernier run réussi.
-- **Linux** : ouvrir les [builds Windows, Linux et macOS](https://github.com/JPVrel/AppReccueil/actions/workflows/build-portable-releases.yml), puis télécharger l’artefact `AppReccueil-linux` dans le dernier run réussi.
-- **macOS** : ouvrir les [builds Windows, Linux et macOS](https://github.com/JPVrel/AppReccueil/actions/workflows/build-portable-releases.yml), puis télécharger l’artefact `AppReccueil-macos` dans le dernier run réussi.
-- [Voir la page des versions publiées](https://github.com/JPVrel/AppReccueil/releases).
+- [Windows 64 bits](https://github.com/JPVrel/AppReccueil/releases/latest/download/AppReccueil-windows-R4.6-x86_64.zip)
+- [Linux 64 bits (x86_64)](https://github.com/JPVrel/AppReccueil/releases/latest/download/AppReccueil-linux-R4.6-x86_64.zip)
+- [macOS Apple Silicon (M1/M2/M3/M4)](https://github.com/JPVrel/AppReccueil/releases/latest/download/AppReccueil-macos-R4.6-aarch64.zip)
 
-Les ZIP du dernier build réussi sont disponibles dans les artefacts du workflow. Ces téléchargements temporaires expirent après 30 jours. Une version publiée apparaîtra sur la page des versions lorsqu’un tag de release sera créé.
+Après le téléchargement, extrayez le ZIP. Il contient l’application et ses packages R. **R 4.6.x doit être installé** sur votre ordinateur ; vous n’avez pas à installer les packages de l’application séparément.
 
-L’archive contient l’application et ses packages R. **R doit quand même être installé** sur votre ordinateur. Utilisez R 4.6.x, la famille de version avec laquelle ces archives sont construites. Il n’est pas nécessaire d’installer les packages de l’application séparément.
+Les archives sont publiées dans [la page des versions](https://github.com/JPVrel/AppReccueil/releases). Si un lien direct ne fonctionne pas, ouvrez cette page et téléchargez l’archive de votre système dans la version la plus récente.
 
 ## Installer et lancer
 
@@ -67,8 +66,8 @@ Les imports sont limités à 25 Mio, 50 000 lignes, 500 colonnes et 1 million de
 
 ## Aide et versions
 
-- [Versions publiées](https://github.com/JPVrel/AppReccueil/releases)
-- [Derniers ZIP Windows, Linux et macOS](https://github.com/JPVrel/AppReccueil/actions/workflows/build-portable-releases.yml)
+- [Versions publiées et téléchargements](https://github.com/JPVrel/AppReccueil/releases)
+- [Voir les builds futurs](https://github.com/JPVrel/AppReccueil/actions/workflows/build-portable-releases.yml)
 - [Signaler un problème](https://github.com/JPVrel/AppReccueil/issues)
 
 ## Informations développeur
@@ -120,7 +119,7 @@ Pour construire hors CI, faites le build sur chaque système cible : Linux, Wind
 
 Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu, Windows et macOS avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit chaque ZIP, l’extrait dans un dossier temporaire, démarre Shiny et vérifie une réponse HTTP 200 avant de publier l’artefact (conservé 30 jours).
 
-Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. La page des releases est [ici](https://github.com/JPVrel/AppReccueil/releases). Une release taguée est le lien de téléchargement durable ; les artefacts d’un run Actions sont temporaires.
+Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. Les URL `releases/latest/download/...` du début du README pointent vers les fichiers de la version la plus récente.
 
 ### Développement local
 
