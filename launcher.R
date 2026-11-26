@@ -3,6 +3,8 @@
 library(tcltk)
 
 app_dir <- normalizePath(getwd())
+source(file.path(app_dir, "R", "package_library.R"))
+activate_project_package_library(app_dir)
 source(file.path(app_dir, "R", "load_modules.R"))
 load_modules(app_dir)
 

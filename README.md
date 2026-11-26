@@ -110,6 +110,24 @@ Rscript --vanilla scripts/install_dependencies.R --profile postgres
 
 Sur Linux, `libssl-dev`, `libcurl4-openssl-dev` et `libxml2-dev` sont les prérequis système conseillés pour compiler les dépendances R depuis CRAN. Sur macOS, le script configure OpenSSL depuis Homebrew lorsqu'il trouve `openssl@3`. Sur Windows, les binaires CRAN évitent normalement la compilation locale.
 
+## Construire une release
+
+Depuis la racine du dépôt, sur le système cible, créez une archive avec l'application et les packages R restaurés depuis `renv.lock` :
+
+```sh
+Rscript --vanilla scripts/build_release.R
+```
+
+Le ZIP apparaît dans `dist/` avec un nom qui indique le système, l'architecture et la version majeure/mineure de R. Pour choisir un autre emplacement, passez `--output chemin/vers/release.zip`. Le script n'écrase jamais un ZIP existant. Il copie le code, crée une configuration locale standard et des dossiers `data/` et `exports/` vides, puis installe la bibliothèque verrouillée dans `renv/library/`. Les bases, exports et éventuels secrets de la configuration de la machine de build ne sont pas inclus.
+
+La construction nécessite un accès à CRAN et installe `renv` si nécessaire ; l'utilisateur final n'a pas besoin de `renv` ni d'un accès à CRAN. Construisez séparément sous Windows, macOS et Linux avec R 4.6.x pour obtenir des bibliothèques compilées pour chaque plateforme. Après extraction, depuis le dossier `AppReccueil`, démarrez l'application avec :
+
+```sh
+Rscript --vanilla shiny/run_app.R 8000
+```
+
+Ouvrez ensuite <http://127.0.0.1:8000>. Le lanceur Tcl/Tk reste optionnel. Cette release embarque les packages R ; certaines bibliothèques natives peuvent encore être fournies par le système d'exploitation, donc testez chaque archive sur une installation propre de la plateforme visée.
+
 ## Utiliser l'accueil
 
 Au démarrage, l'application recherche les bases dans `data/` et vous propose :

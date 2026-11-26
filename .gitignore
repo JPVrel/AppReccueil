@@ -9,6 +9,7 @@ data/*.sqlite.enc.previous
 data/*.sqlite.enc.damaged-*
 exports/*
 !exports/.gitkeep
+dist/
 .Rproj.user/
 .Rhistory
 .RData

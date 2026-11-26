@@ -5,6 +5,8 @@ port <- as.integer(args[[1]])
 file_arg <- grep("^--file=", commandArgs(), value = TRUE)
 app_dir <- dirname(normalizePath(sub("^--file=", "", file_arg[[1]])))
 project_dir <- dirname(app_dir)
+source(file.path(project_dir, "R", "package_library.R"))
+activate_project_package_library(project_dir)
 Sys.setenv(RECUEIL_PROJECT_DIR = project_dir)
 
 shiny::runApp(
