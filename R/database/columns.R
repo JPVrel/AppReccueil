@@ -13,7 +13,7 @@ allowed_record_column_types <- function() {
 
 validate_record_column_name <- function(name) {
   if (length(name) != 1L || is.na(name) || !grepl("^[A-Za-z][A-Za-z0-9_]*$", name)) {
-    stop("Le nom doit commencer par une lettre et contenir uniquement lettres, chiffres et underscores.")
+    stop("Le nom doit commencer par une lettre, sans espaces ni accents ; utilisez uniquement des lettres, chiffres et underscores (_).")
   }
   if (nchar(name, type = "chars") > 64L) {
     stop("Le nom de colonne est trop long : 64 caractères maximum.")

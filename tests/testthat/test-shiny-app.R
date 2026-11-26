@@ -174,7 +174,7 @@ testthat::test_that("column-management actions explain when no database is conne
       new_column_type = "INTEGER",
       add_column = 1
     )
-    testthat::expect_match(output$column_status, "base de données n'est pas connectée")
+    testthat::expect_equal(output$column_status, "")
   })
 })
 

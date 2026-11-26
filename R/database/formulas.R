@@ -307,7 +307,7 @@ calculate_formula <- function(formula, left, right, result_type) {
   }
 
   if (operator == "days_between") {
-    return(as.integer(as.Date(right) - as.Date(left)))
+    return(as.integer(as.Date(left) - as.Date(right)))
   }
 
   if (operator %in% c("months_between", "years_between")) {
@@ -322,9 +322,9 @@ calculate_formula <- function(formula, left, right, result_type) {
     left_day <- as.integer(format(left, "%d"))
     right_day <- as.integer(format(right, "%d"))
 
-    months <- (right_year - left_year) * 12L + (right_month - left_month)
-    adjust_positive <- !missing & months > 0L & right_day < left_day
-    adjust_negative <- !missing & months < 0L & right_day > left_day
+    months <- (left_year - right_year) * 12L + (left_month - right_month)
+    adjust_positive <- !missing & months > 0L & left_day < right_day
+    adjust_negative <- !missing & months < 0L & left_day > right_day
     months[adjust_positive] <- months[adjust_positive] - 1L
     months[adjust_negative] <- months[adjust_negative] + 1L
 

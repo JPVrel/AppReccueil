@@ -10,7 +10,9 @@ testthat::test_that("column schema helpers declare the table, protected columns,
 testthat::test_that("validate_record_column_name accepts safe names and rejects invalid ones", {
   testthat::expect_no_error(validate_record_column_name("participant_age2"))
   testthat::expect_error(validate_record_column_name("2participant"), "commencer par une lettre")
-  testthat::expect_error(validate_record_column_name("participant-age"), "uniquement lettres")
+  testthat::expect_error(validate_record_column_name("participant age"), "sans espaces")
+  testthat::expect_error(validate_record_column_name("participant-age"), "uniquement des lettres")
+  testthat::expect_error(validate_record_column_name("âge"), "sans espaces ni accents")
   testthat::expect_error(validate_record_column_name(c("age", "sex")), "commencer par une lettre")
   testthat::expect_error(validate_record_column_name(NA_character_), "commencer par une lettre")
 })

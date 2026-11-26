@@ -10,13 +10,22 @@ database_management_ui <- function() {
       shiny::div(
         class = "recueil-card recueil-span-6",
         shiny::h3("Ajouter une variable"),
-        shiny::textInput("new_column_name", "Nom de la colonne"),
+        shiny::textInput("new_column_name", "Nom de la variable (sans espaces)"),
+        shiny::p(
+          class = "recueil-help",
+          "Commencez par une lettre ; utilisez uniquement lettres sans accents, chiffres et underscores (_), 64 caractères maximum."
+        ),
         shiny::selectInput(
           "new_column_type",
           "Type",
           choices = c("Texte"="text","Nombre entier"="integer","Nombre décimal"="real","Date"="date","Catégorielle"="categorical")
         ),
         shiny::actionButton("add_column", "Ajouter", class = "btn-primary")
+      ),
+      shiny::div(
+        class = "recueil-card recueil-span-6",
+        shiny::h3("Variables actives"),
+        shiny::tableOutput("active_variables_table")
       ),
       shiny::div(
         class = "recueil-card recueil-span-6",
@@ -34,11 +43,6 @@ database_management_ui <- function() {
           shiny::selectInput("column_to_hide", "Variable", choices = character()),
           shiny::div(class = "recueil-action-bar", shiny::actionButton("hide_column", "Masquer", class = "btn-warning"))
         )
-      ),
-      shiny::div(
-        class = "recueil-card recueil-span-6",
-        shiny::h3("Variables actives"),
-        shiny::tableOutput("active_variables_table")
       ),
       shiny::div(
         class = "recueil-card recueil-span-6",
@@ -85,9 +89,9 @@ database_management_ui <- function() {
             "Soustraction" = "subtract",
             "Multiplication" = "multiply",
             "Division" = "divide",
-            "Différence en jours" = "days_between",
-            "Différence en mois complets" = "months_between",
-            "Différence en années complètes" = "years_between",
+            "Première − deuxième (jours)" = "days_between",
+            "Première − deuxième (mois complets)" = "months_between",
+            "Première − deuxième (années complètes)" = "years_between",
             "Égal à" = "equal",
             "Différent de" = "not_equal",
             "Supérieur à" = "greater_than",
@@ -144,9 +148,9 @@ format_formula_summary <- function(formula, definitions) {
     subtract = "-",
     multiply = "*",
     divide = "/",
-    days_between = "différence en jours",
-    months_between = "différence en mois",
-    years_between = "différence en années",
+    days_between = "première − deuxième en jours",
+    months_between = "première − deuxième en mois",
+    years_between = "première − deuxième en années",
     equal = "=",
     not_equal = "≠",
     greater_than = ">",
@@ -238,9 +242,28 @@ formula_editor_values <- function(connection, column_id) {
   )
 }
 
-database_management_server <- function(input, output, session, connection, refresh_trigger) {
+database_management_server <- function(
+  input,
+  output,
+  session,
+  connection,
+  refresh_trigger,
+  error_popup = function(message) {
+    shiny::showModal(shiny::modalDialog(
+      title = "Erreur",
+      shiny::p(message),
+      easyClose = TRUE,
+      footer = shiny::modalButton("Fermer")
+    ))
+  }
+) {
   definitions <- shiny::reactiveVal(empty_column_definitions())
   column_status <- shiny::reactiveVal("")
+  show_column_error <- function(message) {
+    column_status("")
+    error_popup(message)
+    invisible(NULL)
+  }
   current_connection <- function() {
     if (is.function(connection)) shiny::isolate(connection()) else connection
   }
@@ -341,7 +364,7 @@ database_management_server <- function(input, output, session, connection, refre
 
   run_action <- function(action, success_message) {
     if (is.null(current_connection())) {
-      column_status("La base de données n'est pas connectée.")
+      show_column_error("La base de données n'est pas connectée.")
       return(invisible(NULL))
     }
 
@@ -351,7 +374,7 @@ database_management_server <- function(input, output, session, connection, refre
       refresh_trigger(refresh_trigger() + 1L)
       column_status(success_message(result))
     }, error = function(condition) {
-      column_status(conditionMessage(condition))
+      show_column_error(conditionMessage(condition))
     })
   }
 
@@ -445,7 +468,7 @@ database_management_server <- function(input, output, session, connection, refre
   shiny::observeEvent(input$hide_column, {
     column_id <- tryCatch(current_column_id(input$column_to_hide), error = function(condition) NULL)
     if (is.null(column_id)) {
-      column_status("Sélectionne une variable active à masquer.")
+      show_column_error("Sélectionne une variable active à masquer.")
       return()
     }
     column_name <- get_column_definition(current_connection(), column_id)$name[[1]]
@@ -541,7 +564,7 @@ database_management_server <- function(input, output, session, connection, refre
     )
 
     if (is.null(target)) {
-      column_status(paste("L'en-tête", shQuote(header_name), "n'est pas une variable modifiable."))
+      show_column_error(paste("L'en-tête", shQuote(header_name), "n'est pas une variable modifiable."))
       return()
     }
 

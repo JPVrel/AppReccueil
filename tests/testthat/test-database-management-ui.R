@@ -4,6 +4,50 @@ testthat::test_that("database management display helpers handle empty and popula
   testthat::expect_equal(nrow(column_table_data(empty_column_definitions())), 0L)
 })
 
+testthat::test_that("the add-variable form explains naming rules and places active variables beside it", {
+  ui_html <- htmltools::renderTags(database_management_ui())$html
+  add_position <- regexpr("Ajouter une variable", ui_html, fixed = TRUE)[[1]]
+  active_position <- regexpr("Variables actives", ui_html, fixed = TRUE)[[1]]
+  rename_position <- regexpr("Renommer ou masquer", ui_html, fixed = TRUE)[[1]]
+
+  testthat::expect_match(ui_html, "Nom de la variable \\(sans espaces\\)")
+  testthat::expect_match(ui_html, "lettres sans accents, chiffres et underscores")
+  testthat::expect_true(add_position < active_position)
+  testthat::expect_true(active_position < rename_position)
+})
+
+testthat::test_that("variable management errors are routed to popups, not the bottom status", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  error_messages <- character()
+  error_popup <- function(message) error_messages <<- c(error_messages, message)
+  management_server <- function(input, output, session) {
+    database_management_server(
+      input,
+      output,
+      session,
+      connection,
+      shiny::reactiveVal(0L),
+      error_popup = error_popup
+    )
+  }
+
+  shiny::testServer(management_server, {
+    session$setInputs(
+      new_column_name = "age value",
+      new_column_type = "integer",
+      add_column = 1
+    )
+    testthat::expect_match(error_messages[[1]], "sans espaces")
+    testthat::expect_equal(output$column_status, "")
+
+    session$setInputs(database_spreadsheet_header_dblclick = "id")
+    testthat::expect_match(error_messages[[2]], "n'est pas une variable modifiable")
+    testthat::expect_equal(output$column_status, "")
+  })
+})
+
 testthat::test_that("initialization can read reactive state outside a consumer", {
   state <- shiny::reactiveVal("ready")
   input <- shiny::reactiveValues(dictionary_column_id = "cohort-id")
@@ -151,6 +195,20 @@ testthat::test_that("the management UI handles types, dictionaries, formulas, an
     )
 
     session$setInputs(new_column_name = "start_score", new_column_type = "integer", add_column = 3)
+    testthat::expect_match(output$column_status, "Colonne ajoutée : start_score")
+    integer_definition <- DBI::dbGetQuery(
+      external_connection,
+      "SELECT data_type, sql_name FROM column_definitions WHERE name = 'start_score'"
+    )
+    physical_definition <- DBI::dbGetQuery(
+      external_connection,
+      "PRAGMA table_info(collection_records)"
+    )
+    testthat::expect_equal(integer_definition$data_type, "integer")
+    testthat::expect_equal(
+      physical_definition$type[physical_definition$name == integer_definition$sql_name],
+      "INTEGER"
+    )
     session$setInputs(new_column_name = "end_score", new_column_type = "integer", add_column = 4)
     source_ids <- DBI::dbGetQuery(
       external_connection,
@@ -212,8 +270,17 @@ testthat::test_that("spreadsheet header events route editable fields and reject 
   connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
   on.exit(DBI::dbDisconnect(connection), add = TRUE)
   initialize_database(connection)
+  error_messages <- character()
+  error_popup <- function(message) error_messages <<- c(error_messages, message)
   management_server <- function(input, output, session) {
-    database_management_server(input, output, session, connection, shiny::reactiveVal(0L))
+    database_management_server(
+      input,
+      output,
+      session,
+      connection,
+      shiny::reactiveVal(0L),
+      error_popup = error_popup
+    )
   }
 
   shiny::testServer(management_server, {
@@ -223,6 +290,7 @@ testthat::test_that("spreadsheet header events route editable fields and reject 
     testthat::expect_match(output$column_status, "age.*chargée pour modification")
 
     session$setInputs(database_spreadsheet_header_dblclick = "id")
-    testthat::expect_match(output$column_status, "n'est pas une variable modifiable")
+    testthat::expect_match(error_messages[[1]], "n'est pas une variable modifiable")
+    testthat::expect_equal(output$column_status, "")
   })
 })

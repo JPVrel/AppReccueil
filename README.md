@@ -8,13 +8,13 @@ Application de bureau locale pour créer un recueil de données, importer des fi
 
 Téléchargez le fichier correspondant à votre ordinateur :
 
-- [Windows 64 bits](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.0/AppReccueil-windows-R4.6-x86_64.zip)
-- [Linux 64 bits (x86_64)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.0/AppReccueil-linux-R4.6-x86_64.zip)
-- [macOS Apple Silicon (M1/M2/M3/M4)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.0/AppReccueil-macos-R4.6-aarch64.zip)
+- [Windows 64 bits](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.2/AppReccueil-windows-R4.6-x86_64.zip)
+- [Linux 64 bits (x86_64)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.2/AppReccueil-linux-R4.6-x86_64.zip)
+- [macOS Apple Silicon (M1/M2/M3/M4)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.2/AppReccueil-macos-R4.6-aarch64.zip)
 
 Après le téléchargement, extrayez le ZIP. Il contient l’application et ses packages R. **R 4.6.x doit être installé** sur votre ordinateur ; vous n’avez pas à installer les packages de l’application séparément.
 
-Les archives sont publiées dans [la page de la version 1.0.0](https://github.com/JPVrel/AppReccueil/releases/tag/v1.0.0). Le dépôt GitHub est privé : le téléchargement demande un compte GitHub auquel le propriétaire du dépôt a accordé l’accès. Sans cet accès, les liens afficheront une erreur 404.
+Les archives sont publiées dans [la page de la version 1.0.2](https://github.com/JPVrel/AppReccueil/releases/tag/v1.0.2). Le dépôt GitHub est privé : le téléchargement demande un compte GitHub auquel le propriétaire du dépôt a accordé l’accès. Sans cet accès, les liens afficheront une erreur 404.
 
 ## Installer et lancer
 
@@ -70,6 +70,8 @@ L’application sait notamment :
 - organiser les variables, catégories et formules ;
 - masquer puis restaurer des observations ou variables ;
 - exporter en CSV, Excel ou RDS, avec chiffrement facultatif de l’export.
+
+Les noms de variables ne peuvent pas contenir d’espaces ni d’accents. Ils doivent commencer par une lettre et utiliser uniquement des lettres, des chiffres ou `_` (64 caractères maximum). Exemple : `age_du_patient`.
 
 Les imports sont limités à 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. RDS est un format sérialisé par R : ne chargez que des fichiers provenant d’une source de confiance. Lors d’une fusion, choisissez une clé unique commune aux deux fichiers ; les conflits sont présentés pour arbitrage.
 
@@ -130,7 +132,7 @@ Pour construire hors CI, faites le build sur chaque système cible : Linux, Wind
 
 Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu, Windows et macOS avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit chaque ZIP, l’extrait dans un dossier temporaire, démarre Shiny et vérifie une réponse HTTP 200 avant de publier l’artefact (conservé 30 jours).
 
-Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. Les liens utilisateurs pointent actuellement explicitement vers les assets de `v1.0.0`.
+Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. Les liens utilisateurs pointent actuellement explicitement vers les assets de `v1.0.2`.
 
 ### Développement local
 

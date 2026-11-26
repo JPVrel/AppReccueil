@@ -86,7 +86,7 @@ testthat::test_that("date formulas calculate day differences and comparisons", {
     list_column_definitions(connection)
   )
 
-  testthat::expect_equal(calculated$duration_days[[1]], 2)
+  testthat::expect_equal(calculated$duration_days[[1]], -2)
   testthat::expect_true(is.na(calculated$duration_days[[2]]))
   testthat::expect_true(calculated$ends_later[[1]])
 })
@@ -233,6 +233,6 @@ testthat::test_that("date formulas calculate complete months and years", {
     list_column_definitions(connection)
   )
 
-  testthat::expect_equal(calculated$months_elapsed, c(1L, 0L, -24L, 24L, NA_integer_))
-  testthat::expect_equal(calculated$years_elapsed, c(0L, 0L, -2L, 2L, NA_integer_))
+  testthat::expect_equal(calculated$months_elapsed, c(-1L, 0L, 24L, -24L, NA_integer_))
+  testthat::expect_equal(calculated$years_elapsed, c(0L, 0L, 2L, -2L, NA_integer_))
 })
