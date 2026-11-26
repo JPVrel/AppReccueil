@@ -210,7 +210,7 @@ database_home_server <- function(
       return(shiny::tagList(
         shiny::p("Les colonnes d'un fichier importé seront associées à des types avant la création de la base."),
         shiny::p("N'importe que des fichiers RDS provenant d'une source de confiance : ce format sérialise des objets R."),
-        shiny::p("Limites d'import : 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules.")
+        shiny::p("Limites d'import : 25 Mio par fichier, 100 Mio décompressés pour XLSX/RDS, 50 000 lignes, 500 colonnes et 1 million de cellules.")
       ))
     }
     imported <- imported_data()

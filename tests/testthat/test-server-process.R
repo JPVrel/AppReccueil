@@ -52,49 +52,94 @@ testthat::test_that("wait_for_server times out when no process listens", {
   )
 })
 
-testthat::test_that("start_server_process starts and returns the listening pid", {
+testthat::test_that("start_server_process returns its owned process handle", {
+  process <- new.env(parent = emptyenv())
+  process$get_pid <- function() 4321L
+  process$is_alive <- function() TRUE
+  process$kill <- function(...) NULL
+  process$wait <- function(...) NULL
   command <- NULL
-  system_runner <- function(...) command <<- list(...)
-  wait_fn <- function(...) TRUE
-  find_pids <- function(...) 4321L
+  arguments <- NULL
+  ready_pid <- NULL
   config <- create_app_config("/tmp/project", port = 8123)
 
-  pid <- start_server_process(config, system_runner, wait_fn, find_pids)
-
-  testthat::expect_equal(pid, 4321L)
-  testthat::expect_equal(command[[1]], config$rscript)
-  testthat::expect_equal(command[[2]][[3]], "8123")
-})
-
-testthat::test_that("stop_server_process calls the injected killer", {
-  killed_pid <- NULL
-  kill_fn <- function(pid) killed_pid <<- pid
-
-  stop_server_process(4321L, kill_fn = kill_fn)
-
-  testthat::expect_equal(killed_pid, 4321L)
-})
-
-testthat::test_that("stop_server_process verifies the port and escalates", {
-  terminated <- integer()
-  forced <- integer()
-  attempts <- 0L
-
-  find_pids <- function(port) {
-    attempts <<- attempts + 1L
-    4321L
-  }
-  stop_server_process(
-    4321L,
-    port = 8000,
-    kill_fn = function(pid) terminated <<- c(terminated, pid),
-    force_kill_fn = function(pid, signal) forced <<- c(forced, pid),
-    find_pids = find_pids,
-    sleep_fn = function(...) NULL
+  started <- start_server_process(
+    config,
+    process_factory = function(command_arg, args_arg) {
+      command <<- command_arg
+      arguments <<- args_arg
+      process
+    },
+    wait_fn = function(port, expected_pid, alive_fn, find_pids) {
+      ready_pid <<- expected_pid
+      TRUE
+    },
+    find_pids = function(...) 4321L
   )
 
-  testthat::expect_equal(terminated, 4321L)
-  testthat::expect_true(4321L %in% forced)
+  testthat::expect_identical(started, process)
+  testthat::expect_equal(ready_pid, 4321L)
+  testthat::expect_equal(command, config$rscript)
+  testthat::expect_equal(arguments[[3]], "8123")
+})
+
+testthat::test_that("a foreign listener is not treated as the server or stopped", {
+  process <- new.env(parent = emptyenv())
+  process$alive <- TRUE
+  process$killed <- FALSE
+  process$get_pid <- function() 4321L
+  process$is_alive <- function() process$alive
+  process$kill <- function(grace) {
+    process$killed <- TRUE
+    process$alive <- FALSE
+  }
+  process$wait <- function(timeout) NULL
+  config <- create_app_config("/tmp/project", port = 8123)
+  current_time <- 0
+
+  started <- start_server_process(
+    config,
+    process_factory = function(command_arg, args_arg) process,
+    wait_fn = function(port, expected_pid, alive_fn, find_pids) {
+      wait_for_server(
+        port,
+        timeout = 0,
+        interval = 0,
+        find_pids = function(...) 9876L,
+        sleep_fn = function(...) NULL,
+        now_fn = function() {
+          current_time <<- current_time + 1
+          current_time
+        },
+        expected_pid = expected_pid,
+        alive_fn = alive_fn
+      )
+    },
+    find_pids = function(...) 9876L
+  )
+
+  testthat::expect_null(started)
+  testthat::expect_true(process$killed)
+  testthat::expect_false(process$alive)
+})
+
+testthat::test_that("stop_server_process acts only on its process handle", {
+  process <- new.env(parent = emptyenv())
+  process$alive <- TRUE
+  process$killed <- FALSE
+  process$waited <- FALSE
+  process$is_alive <- function() process$alive
+  process$kill <- function(grace) {
+    process$killed <- TRUE
+    process$alive <- FALSE
+  }
+  process$wait <- function(timeout) process$waited <- TRUE
+
+  stop_server_process(process)
+
+  testthat::expect_true(process$killed)
+  testthat::expect_true(process$waited)
+  testthat::expect_no_error(stop_server_process(NULL))
 })
 
 testthat::test_that("parse_windows_listening_pids extracts listening TCP PIDs", {

@@ -42,6 +42,29 @@ testthat::test_that("read_collection_records hides archived sources but still ca
   testthat::expect_equal(records$total, 5)
 })
 
+testthat::test_that("archived physical names do not collide with derived columns", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  source_id <- add_typed_column(connection, "value", "integer")
+  left_id <- add_typed_column(connection, "left_value", "integer")
+  right_id <- add_typed_column(connection, "right_value", "integer")
+  add_derived_column(connection, "value__hidden_1", list(
+    mode = "binary", left_id = left_id, operator = "add", right_id = right_id
+  ))
+  DBI::dbExecute(
+    connection,
+    "INSERT INTO collection_records (id, created_at, payload, value, left_value, right_value) VALUES ('row-1', CURRENT_TIMESTAMP, '{}', 99, 2, 3)"
+  )
+
+  hide_column(connection, source_id)
+  records <- read_collection_records(connection)
+
+  testthat::expect_equal(get_column_definition(connection, source_id)$sql_name[[1]], "value__hidden_2")
+  testthat::expect_equal(records$value__hidden_1, 5)
+  testthat::expect_false("value" %in% names(records))
+})
+
 testthat::test_that("read_collection_records can calculate through a hidden derived field", {
   connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
   on.exit(DBI::dbDisconnect(connection), add = TRUE)
@@ -240,9 +263,14 @@ testthat::test_that("questionnaire rejects impossible text and date edge cases",
   on.exit(DBI::dbDisconnect(connection), add = TRUE)
   initialize_database(connection)
   add_typed_column(connection, "note", "text")
+  add_typed_column(connection, "visit_date", "date")
 
   testthat::expect_error(
-    insert_collection_record(connection, list(note = strrep("A", 10001)), "row-long"),
+    insert_collection_record(connection, list(note = strrep("A", 10001), visit_date = "2026-11-25"), "row-long"),
     "10 000 caractères"
+  )
+  testthat::expect_error(
+    insert_collection_record(connection, list(note = "ok", visit_date = "0999-12-31"), "row-old-date"),
+    "année doit être comprise"
   )
 })

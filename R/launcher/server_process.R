@@ -56,13 +56,22 @@ wait_for_server <- function(
   interval = 0.1,
   find_pids = find_listening_pids,
   sleep_fn = Sys.sleep,
-  now_fn = Sys.time
+  now_fn = Sys.time,
+  expected_pid = NULL,
+  alive_fn = NULL
 ) {
   deadline <- now_fn() + timeout
 
   repeat {
-    if (length(find_pids(port)) > 0) {
+    listening_pids <- find_pids(port)
+    if (is.null(expected_pid) && length(listening_pids) > 0L) {
       return(TRUE)
+    }
+    if (!is.null(expected_pid) && expected_pid %in% listening_pids) {
+      return(TRUE)
+    }
+    if (!is.null(alive_fn) && !isTRUE(alive_fn())) {
+      return(FALSE)
     }
 
     if (now_fn() >= deadline) {
@@ -77,64 +86,50 @@ wait_for_server <- function(
 # de la session Positron, qui n'est pas autorisé dans cet environnement.
 start_server_process <- function(
   config,
-  system_runner = system2,
+  process_factory = function(command, args) {
+    processx::process$new(
+      command,
+      args,
+      stdin = "null",
+      stdout = "null",
+      stderr = "null",
+      windows_hide_window = TRUE
+    )
+  },
   wait_fn = wait_for_server,
   find_pids = find_listening_pids
 ) {
-  system_runner(
+  process <- process_factory(
     config$rscript,
-    c("--vanilla", config$shiny_runner, as.character(config$port)),
-    wait = FALSE,
-    stdout = FALSE,
-    stderr = FALSE
+    c("--vanilla", config$shiny_runner, as.character(config$port))
   )
 
-  if (!wait_fn(config$port)) {
+  ready <- wait_fn(
+    config$port,
+    expected_pid = process$get_pid(),
+    alive_fn = process$is_alive,
+    find_pids = find_pids
+  )
+  if (!ready) {
+    stop_server_process(process)
     return(NULL)
   }
 
-  tail(find_pids(config$port), 1)
+  process
 }
 
-# Arrête uniquement le processus dont le PID a été mémorisé par le lanceur.
+# Arrête uniquement le processus détenu par le handle retourné au démarrage.
 stop_server_process <- function(
-  pid,
-  port = NULL,
-  kill_fn = tools::pskill,
-  force_kill_fn = tools::pskill,
-  find_pids = find_listening_pids,
-  sleep_fn = Sys.sleep
+  process,
+  grace = 1000,
+  wait_timeout = 2000
 ) {
-  target_pids <- if (is.null(pid)) integer() else as.integer(pid)
-  if (!is.null(port)) {
-    target_pids <- unique(c(target_pids, as.integer(find_pids(port))))
-  }
-  target_pids <- target_pids[!is.na(target_pids) & target_pids > 0L]
-
-  if (length(target_pids) == 0L) {
+  if (is.null(process) || !process$is_alive()) {
     return(invisible(NULL))
   }
 
-  for (target_pid in target_pids) {
-    kill_fn(target_pid)
-  }
-
-  if (!is.null(port)) {
-    for (attempt in seq_len(20L)) {
-      remaining <- as.integer(find_pids(port))
-      if (length(remaining) == 0L) {
-        break
-      }
-      sleep_fn(0.05)
-    }
-
-    remaining <- as.integer(find_pids(port))
-    if (length(remaining) > 0L) {
-      for (target_pid in unique(c(target_pids, remaining))) {
-        force_kill_fn(target_pid, tools::SIGKILL)
-      }
-    }
-  }
+  process$kill(grace = grace)
+  process$wait(timeout = wait_timeout)
 
   invisible(NULL)
 }

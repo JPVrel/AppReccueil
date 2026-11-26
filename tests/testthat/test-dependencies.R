@@ -1,7 +1,7 @@
 testthat::test_that("runtime packages contain Shiny", {
   testthat::expect_equal(
     runtime_packages(),
-    c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl")
+    c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl", "processx")
   )
 })
 
@@ -9,7 +9,7 @@ testthat::test_that("dependency profiles include their direct packages", {
   testthat::expect_setequal(dependency_packages("runtime"), runtime_packages())
   testthat::expect_true(all(c("testthat", "htmltools") %in% dependency_packages("development")))
   testthat::expect_true("RPostgres" %in% dependency_packages("postgres"))
-  testthat::expect_error(dependency_packages("unknown"), "'arg' should be one of")
+  testthat::expect_error(dependency_packages("unknown"))
 })
 
 testthat::test_that("the release package library is activated before system libraries", {

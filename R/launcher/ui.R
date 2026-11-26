@@ -1,6 +1,6 @@
 # Transforme l'état technique du serveur en texte compréhensible dans la fenêtre.
-launcher_status_text <- function(server_pid, app_url) {
-  if (is.null(server_pid)) {
+launcher_status_text <- function(server_process, app_url) {
+  if (is.null(server_process)) {
     return("Le serveur Shiny est arrêté.")
   }
 
@@ -17,9 +17,9 @@ create_launcher_window <- function(
   find_pids_fn = find_listening_pids
 ) {
   state <- new.env(parent = emptyenv())
-  state$pid <- NULL
+  state$process <- NULL
 
-  # Le PID est conservé dans un environnement partagé par les callbacks
+  # Le processus est conservé dans un environnement partagé par les callbacks
   # des boutons et par le nettoyage effectué à la fermeture de la fenêtre.
   window <- tcltk::tktoplevel()
   tcltk::tkwm.title(window, "Application de recueil")
@@ -32,7 +32,7 @@ create_launcher_window <- function(
   tcltk::tkgrid(status_label, padx = 24, pady = 4)
 
   launch <- function() {
-    if (!is.null(state$pid)) {
+    if (!is.null(state$process)) {
       return(invisible(NULL))
     }
 
@@ -41,15 +41,15 @@ create_launcher_window <- function(
       return(invisible(NULL))
     }
 
-    state$pid <- start_fn(config)
-    if (is.null(state$pid)) {
+    state$process <- start_fn(config)
+    if (is.null(state$process)) {
       tcltk::tkconfigure(status_label, text = "Le serveur n'a pas pu démarrer.")
       return(invisible(NULL))
     }
 
     # Le navigateur n'est ouvert qu'après confirmation que le serveur écoute.
     browse_fn(config$app_url)
-    tcltk::tkconfigure(status_label, text = launcher_status_text(state$pid, config$app_url))
+    tcltk::tkconfigure(status_label, text = launcher_status_text(state$process, config$app_url))
   }
 
   tcltk::tkgrid(
@@ -64,7 +64,7 @@ create_launcher_window <- function(
   )
   tcltk::tkgrid(
     tcltk::tkbutton(window, text = "Tout quitter", command = function() {
-      stop_fn(state$pid, config$port)
+      stop_fn(state$process)
       tcltk::tkdestroy(window)
     }),
     padx = 24,
@@ -74,5 +74,5 @@ create_launcher_window <- function(
   # Attend les événements Tcl/Tk. La fonction reprend lorsque la fenêtre
   # est fermée, puis garantit un dernier arrêt du serveur.
   tcltk::tkwait.window(window)
-  stop_fn(state$pid, config$port)
+  stop_fn(state$process)
 }

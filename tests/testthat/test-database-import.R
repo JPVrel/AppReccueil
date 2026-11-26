@@ -86,6 +86,31 @@ testthat::test_that("RDS import rejects serialized objects that are not data fra
   testthat::expect_error(read_database_import_file(rds_path), "au moins une colonne")
 })
 
+testthat::test_that("truncated compressed RDS files receive a controlled error", {
+  rds_path <- tempfile(fileext = ".rds")
+  on.exit(unlink(rds_path), add = TRUE)
+  writeBin(as.raw(c(0x1f, 0x8b, 0x08, 0x00)), rds_path)
+
+  testthat::expect_error(
+    read_database_import_file(rds_path),
+    "RDS est invalide ou incompatible"
+  )
+})
+
+testthat::test_that("RDS expanded size is bounded for supported encodings", {
+  for (compression in list(FALSE, "gzip", "bzip2", "xz", "zstd")) {
+    rds_path <- tempfile(fileext = ".rds")
+    on.exit(unlink(rds_path), add = TRUE)
+    saveRDS(list(value = strrep("a", 100)), rds_path, compress = compression)
+
+    testthat::expect_gt(validate_rds_expanded_size(rds_path, max_bytes = 10000L), 0L)
+    testthat::expect_error(
+      validate_rds_expanded_size(rds_path, max_bytes = 1L),
+      "limite décompressée"
+    )
+  }
+})
+
 testthat::test_that("encrypted spreadsheet exports can be re-imported with their password", {
   plain_path <- tempfile(fileext = ".csv")
   encrypted_path <- tempfile(fileext = ".enc")
@@ -115,6 +140,12 @@ testthat::test_that("import type conversion validates values and preserves missi
   testthat::expect_identical(converted$age, c(12L, NA_integer_))
   testthat::expect_identical(converted$visit_date, as.Date(c("2026-11-25", NA)))
   testthat::expect_identical(converted$eligible, c(TRUE, FALSE))
+  testthat::expect_error(convert_import_column("0999-12-31", "date"), "année doit être comprise")
+  testthat::expect_error(
+    convert_import_column(as.Date("0999-12-31"), "date"),
+    "année doit être comprise"
+  )
+  testthat::expect_error(convert_import_column("2024-02-31", "date"), "date réelle")
   testthat::expect_error(
     convert_database_import(data.frame(age = "12.5"), c(age = "integer")),
     "pas entière"

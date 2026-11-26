@@ -33,11 +33,14 @@ update_column_archive_state <- function(connection, column_id, name, sql_name, i
 }
 
 next_archive_sql_name <- function(connection, name) {
-  existing <- list_record_columns(connection)
+  existing <- tolower(c(
+    list_record_columns(connection),
+    list_column_definitions(connection, include_hidden = TRUE)$name
+  ))
   suffix <- 1L
   repeat {
     candidate <- paste0(name, "__hidden_", suffix)
-    if (!candidate %in% existing) {
+    if (!tolower(candidate) %in% existing) {
       return(candidate)
     }
     suffix <- suffix + 1L

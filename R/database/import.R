@@ -45,6 +45,7 @@ database_import_limits <- function() {
   list(
     file_bytes = 25 * 1024^2,
     xlsx_expanded_bytes = 100 * 1024^2,
+    rds_expanded_bytes = 100 * 1024^2,
     rows = 50000L,
     columns = 500L,
     cells = 1000000
@@ -69,6 +70,69 @@ validate_database_import_file <- function(path, extension) {
   invisible(TRUE)
 }
 
+open_rds_import_connection <- function(path) {
+  input <- file(path, open = "rb")
+  on.exit(close(input), add = TRUE)
+  header <- readBin(input, what = "raw", n = 6L)
+
+  starts_with <- function(magic) {
+    length(header) >= length(magic) && identical(header[seq_along(magic)], magic)
+  }
+
+  if (starts_with(as.raw(c(0x1f, 0x8b)))) {
+    return(gzfile(path, open = "rb"))
+  }
+  if (starts_with(charToRaw("BZh"))) {
+    return(bzfile(path, open = "rb"))
+  }
+  if (starts_with(as.raw(c(0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00)))) {
+    return(xzfile(path, open = "rb"))
+  }
+  if (starts_with(as.raw(c(0x28, 0xb5, 0x2f, 0xfd)))) {
+    if (!exists("zstdfile", envir = baseenv(), inherits = FALSE)) {
+      stop("Cette version de R ne permet pas de vérifier les RDS compressés en zstd.")
+    }
+    return(get("zstdfile", envir = baseenv())(path, open = "rb"))
+  }
+  if (starts_with(charToRaw("X\n")) || starts_with(charToRaw("A\n")) ||
+      starts_with(charToRaw("B\n"))) {
+    return(file(path, open = "rb"))
+  }
+
+  stop("Le fichier RDS est invalide ou incompatible : sa compression ne peut pas être vérifiée.")
+}
+
+validate_rds_expanded_size <- function(path, max_bytes = database_import_limits()$rds_expanded_bytes) {
+  connection <- tryCatch(
+    open_rds_import_connection(path),
+    error = function(error) stop("Le fichier RDS est invalide ou incompatible.", call. = FALSE)
+  )
+  on.exit(try(close(connection), silent = TRUE), add = TRUE)
+  expanded_bytes <- 0
+  chunk_size <- 1024^2
+
+  repeat {
+    remaining <- max_bytes + 1 - expanded_bytes
+    chunk <- tryCatch(
+      suppressWarnings(readBin(
+        connection,
+        what = "raw",
+        n = as.integer(min(chunk_size, remaining))
+      )),
+      error = function(error) stop("Le fichier RDS est invalide ou incompatible.", call. = FALSE)
+    )
+    expanded_bytes <- expanded_bytes + length(chunk)
+    if (expanded_bytes > max_bytes) {
+      stop("Le fichier RDS dépasse la limite décompressée autorisée.")
+    }
+    if (length(chunk) == 0L) {
+      break
+    }
+  }
+
+  invisible(expanded_bytes)
+}
+
 import_row_limit <- function(column_count, limits = database_import_limits()) {
   if (length(column_count) != 1L || is.na(column_count) || column_count < 1L) {
     stop("Le fichier doit contenir au moins une colonne.")
@@ -85,6 +149,9 @@ read_database_import_file <- function(path, file_name = path) {
     stop("Le fichier doit être au format CSV, XLSX ou RDS.")
   }
   validate_database_import_file(path, extension)
+  if (identical(extension, "rds")) {
+    validate_rds_expanded_size(path)
+  }
   limits <- database_import_limits()
   header <- switch(
     extension,
@@ -271,11 +338,24 @@ convert_import_column <- function(values, data_type, field_name = "colonne") {
   }
   if (identical(data_type, "date")) {
     if (inherits(values, "Date")) {
+      numeric_values <- as.numeric(values)
+      lower_bound <- as.numeric(as.Date("1000-01-01"))
+      upper_bound <- as.numeric(as.Date("9999-12-31"))
+      out_of_range <- !is.na(numeric_values) & (
+        !is.finite(numeric_values) | numeric_values < lower_bound | numeric_values > upper_bound
+      )
+      if (any(out_of_range)) {
+        stop("La colonne ", field_name, " : l'année doit être comprise entre 1000 et 9999.")
+      }
       return(values)
     }
-    parsed <- as.Date(text, format = "%Y-%m-%d")
-    if (any(!missing & is.na(parsed))) {
-      stop("La colonne ", field_name, " contient une date qui n'est pas au format YYYY-MM-DD.")
+    parsed_values <- lapply(text[!missing], validate_date_value)
+    parsed <- as.Date(rep(NA_real_, length(values)), origin = "1970-01-01")
+    if (length(parsed_values) > 0L) {
+      parsed[!missing] <- as.Date(
+        vapply(parsed_values, as.numeric, numeric(1)),
+        origin = "1970-01-01"
+      )
     }
     return(parsed)
   }

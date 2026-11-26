@@ -89,7 +89,7 @@ testthat::test_dir("tests/testthat")
 - Le masquage conserve les colonnes et valeurs ; il n'existe pas de suppression physique depuis l'interface.
 - Les secrets d'une base distante sont attendus via des variables d'environnement, pas dans le dépôt.
 - Les bases et exports pour lesquels un mot de passe est défini utilisent AES-256-GCM et une clé dérivée du mot de passe ; aucune clé n'est stockée avec les données. Laisser le mot de passe vide crée ou exporte un fichier en clair.
-- Les imports sont plafonnés à 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. Les fichiers RDS sont des objets sérialisés ; l'UI demande une confirmation et seules des sources de confiance doivent être chargées.
+- Les imports sont plafonnés à 25 Mio par fichier, 100 Mio décompressés pour XLSX/RDS, 50 000 lignes, 500 colonnes et 1 million de cellules. La taille décompressée des RDS est vérifiée par lecture en blocs avant désérialisation. Les fichiers RDS sont des objets sérialisés ; l'UI demande une confirmation et seules des sources de confiance doivent être chargées.
 - Le chiffrement AES bufferise le fichier ; les bases et exports de plus de 256 Mio sont refusés avant lecture en mémoire.
 - Les chemins reçus depuis les sélecteurs Shiny sont canonicalisés et doivent pointer directement dans le dossier `data/` configuré.
 - Un plan de fusion est recalculé dans la transaction avant écriture ; tout changement entre aperçu et validation annule l'opération.

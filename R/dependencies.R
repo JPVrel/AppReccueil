@@ -1,6 +1,6 @@
 # Packages nécessaires pour utiliser l'application, hors outils de test.
 runtime_packages <- function() {
-  c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl")
+  c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl", "processx")
 }
 
 # Packages directs utilisés par les tests et le développement.

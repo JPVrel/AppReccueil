@@ -8,13 +8,13 @@ Application de bureau locale pour créer un recueil de données, importer des fi
 
 Téléchargez le fichier correspondant à votre ordinateur :
 
-- [Windows 64 bits](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.2/AppReccueil-windows-R4.6-x86_64.zip)
-- [Linux 64 bits (x86_64)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.2/AppReccueil-linux-R4.6-x86_64.zip)
-- [macOS Apple Silicon (M1/M2/M3/M4)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.2/AppReccueil-macos-R4.6-aarch64.zip)
+- [Windows 64 bits](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.3/AppReccueil-windows-R4.6-x86_64.zip)
+- [Linux 64 bits (x86_64)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.3/AppReccueil-linux-R4.6-x86_64.zip)
+- [macOS Apple Silicon (M1/M2/M3/M4)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.3/AppReccueil-macos-R4.6-aarch64.zip)
 
 Après le téléchargement, extrayez le ZIP. Il contient l’application et ses packages R. **R 4.6.x doit être installé** sur votre ordinateur ; vous n’avez pas à installer les packages de l’application séparément.
 
-Les archives sont publiées dans [la page de la version 1.0.2](https://github.com/JPVrel/AppReccueil/releases/tag/v1.0.2). Le dépôt GitHub est privé : le téléchargement demande un compte GitHub auquel le propriétaire du dépôt a accordé l’accès. Sans cet accès, les liens afficheront une erreur 404.
+Les archives sont publiées dans [la page de la version 1.0.3](https://github.com/JPVrel/AppReccueil/releases/tag/v1.0.3). Le dépôt GitHub est privé : le téléchargement demande un compte GitHub auquel le propriétaire du dépôt a accordé l’accès. Sans cet accès, les liens afficheront une erreur 404.
 
 ## Installer et lancer
 
@@ -76,7 +76,7 @@ Les noms de colonnes ne peuvent pas contenir d’espaces ni d’accents. Ils doi
 
 Les nouveaux ID d’entrée sont générés avec un préfixe et un numéro incrémenté à partir du plus grand ID actif correspondant. Le préfixe doit commencer par une lettre ou un chiffre, peut contenir des tirets ou `_`, sans espace, et ne peut pas dépasser 30 caractères ; les ID complets sont limités à 36 caractères. Les ID d’entrées masquées restent réservés.
 
-Les imports sont limités à 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. RDS est un format sérialisé par R : ne chargez que des fichiers provenant d’une source de confiance. Lors d’une fusion, choisissez une clé unique commune aux deux fichiers ; les conflits sont présentés pour arbitrage.
+Les imports sont limités à 25 Mio par fichier, 100 Mio décompressés pour XLSX/RDS, 50 000 lignes, 500 colonnes et 1 million de cellules. RDS est un format sérialisé par R : ne chargez que des fichiers provenant d'une source de confiance. Lors d'une fusion, choisissez une clé unique commune aux deux fichiers ; les conflits sont présentés pour arbitrage.
 
 **Attention aux fichiers non chiffrés :** les bases SQLite créées sans mot de passe et les exports sans mot de passe sont lisibles par toute personne ayant accès à ces fichiers.
 
@@ -94,7 +94,7 @@ Cette section regroupe les détails de développement, de maintenance et de vér
 
 Le projet demande R 4.4 ou supérieur pour le développement. `renv.lock` contient actuellement les versions résolues avec R 4.6.2. Les archives distribuées sont construites sous R 4.6.2 ; leur bibliothèque embarquée est séparée par système, architecture et famille de version R.
 
-Le profil `runtime` comprend `shiny`, `DT`, `DBI`, `RSQLite`, `yaml`, `writexl`, `readxl` et `openssl`. Le profil `development` ajoute `testthat` et `htmltools`. Le profil optionnel `postgres` ajoute `RPostgres`.
+Le profil `runtime` comprend `shiny`, `DT`, `DBI`, `RSQLite`, `yaml`, `writexl`, `readxl`, `openssl` et `processx`. Le profil `development` ajoute `testthat` et `htmltools`. Le profil optionnel `postgres` ajoute `RPostgres`.
 
 Installer les dépendances runtime depuis la racine du dépôt :
 
@@ -135,7 +135,7 @@ Pour construire hors CI, faites le build sur chaque système cible : Linux, Wind
 
 Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu, Windows et macOS avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit chaque ZIP, l’extrait dans un dossier temporaire, démarre Shiny et vérifie une réponse HTTP 200 avant de publier l’artefact (conservé 30 jours).
 
-Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. Les liens utilisateurs pointent actuellement explicitement vers les assets de `v1.0.2`.
+Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. Les liens utilisateurs pointent actuellement explicitement vers les assets de `v1.0.3`.
 
 ### Développement local
 
@@ -202,7 +202,7 @@ Le journal des validations adversariales et les limites connues sont décrits da
 
 Avec un mot de passe, une base est conservée dans un coffre AES-256-GCM ; le mot de passe n’est pas stocké. Pour l’ouvrir, l’application la déchiffre dans un dossier temporaire privé et la rechiffre à la fermeture. Un arrêt brutal peut nécessiter une récupération. Si l’état d’un verrou ou d’une copie temporaire est ambigu, l’application refuse l’ouverture afin d’éviter d’écraser des données ; voir le journal de sécurité pour les procédures de récupération.
 
-Le chiffrement actuel charge les fichiers en mémoire et refuse les bases ou exports de plus de 256 Mio. Les fichiers `data/` et `exports/` sont ignorés par Git. Une base ou un export sans mot de passe reste en clair.
+Le chiffrement actuel charge les fichiers en mémoire et refuse les bases ou exports de plus de 256 Mio. Les imports XLSX/RDS sont plafonnés à 100 Mio après décompression, avant le parsing XLSX ou la désérialisation RDS. Les fichiers `data/` et `exports/` sont ignorés par Git. Une base ou un export sans mot de passe reste en clair.
 
 Les formules sont structurées et ne sont pas exécutées comme du code R libre. Les colonnes techniques `id`, `created_at`, `payload` et `is_deleted` ne sont pas éditables ; `payload` et `is_deleted` sont exclus des vues et exports. Une observation supprimée est masquée, pas effacée. Les champs masqués restent stockés.
 
