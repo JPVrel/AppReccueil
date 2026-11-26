@@ -15,9 +15,6 @@ jobs:
   build:
     name: Build ${{ matrix.target }} release
     runs-on: ${{ matrix.os }}
-    env:
-      R_LIBS_USER: ${{ runner.temp }}/AppReccueil-R-library
-      APPRECUEIL_BUILD_LIBRARY: ${{ runner.temp }}/AppReccueil-R-library
     strategy:
       fail-fast: false
       matrix:
@@ -50,15 +47,24 @@ jobs:
             zlib1g-dev
 
       - name: Prepare package library
+        env:
+          R_LIBS_USER: ${{ runner.temp }}/AppReccueil-R-library
         run: Rscript --vanilla -e 'dir.create(Sys.getenv("R_LIBS_USER"), recursive = TRUE, showWarnings = FALSE)'
 
       - name: Install test dependencies
+        env:
+          R_LIBS_USER: ${{ runner.temp }}/AppReccueil-R-library
         run: Rscript --vanilla scripts/install_dependencies.R --profile development
 
       - name: Run test suite
+        env:
+          R_LIBS_USER: ${{ runner.temp }}/AppReccueil-R-library
         run: Rscript --vanilla -e 'testthat::test_dir("tests/testthat")'
 
       - name: Build portable release
+        env:
+          R_LIBS_USER: ${{ runner.temp }}/AppReccueil-R-library
+          APPRECUEIL_BUILD_LIBRARY: ${{ runner.temp }}/AppReccueil-R-library
         run: Rscript --vanilla scripts/build_release.R
 
       - name: Upload release archive
