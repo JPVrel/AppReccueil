@@ -12,13 +12,14 @@ validate_date_value <- function(value) {
     stop("La date doit respecter le format YYYY-MM-DD.")
   }
 
-  parsed_date <- suppressWarnings(as.Date(value, format = "%Y-%m-%d"))
-  if (is.na(parsed_date) || format(parsed_date, "%Y-%m-%d") != value) {
-    stop("La date doit être une date réelle au format YYYY-MM-DD.")
-  }
   year <- as.integer(substr(value, 1, 4))
   if (year < 1000L || year > 9999L) {
     stop("L'année doit être comprise entre 1000 et 9999.")
+  }
+
+  parsed_date <- suppressWarnings(as.Date(value, format = "%Y-%m-%d"))
+  if (is.na(parsed_date) || format(parsed_date, "%Y-%m-%d") != value) {
+    stop("La date doit être une date réelle au format YYYY-MM-DD.")
   }
 
   parsed_date
