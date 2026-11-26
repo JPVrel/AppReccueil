@@ -8,11 +8,6 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      build_macos:
-        description: Build macOS on GitHub-hosted runners instead of locally
-        type: boolean
-        required: false
-        default: false
       release_tag:
         description: Optional release tag to create as a draft after builds (for example v1.0.4)
         type: string
@@ -25,7 +20,6 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.target }} release
-    if: matrix.target != 'macos' || inputs.build_macos == true
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -36,8 +30,6 @@ jobs:
             target: linux
           - os: windows-latest
             target: windows
-          - os: macos-15
-            target: macos
 
     steps:
       - name: Check out repository
