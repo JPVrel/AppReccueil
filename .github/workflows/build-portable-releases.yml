@@ -23,6 +23,8 @@ jobs:
             target: linux
           - os: windows-latest
             target: windows
+          - os: macos-latest
+            target: macos
 
     steps:
       - name: Check out repository
@@ -45,6 +47,10 @@ jobs:
             libuv1-dev \
             libxml2-dev \
             zlib1g-dev
+
+      - name: Install macOS build libraries
+        if: runner.os == 'macOS'
+        run: brew install openssl@3
 
       - name: Prepare package library
         env:

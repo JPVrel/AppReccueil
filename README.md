@@ -8,8 +8,9 @@ Application de bureau locale pour créer un recueil de données, importer des fi
 
 Choisissez le fichier correspondant au système de votre ordinateur :
 
-- **Windows** : [ouvrir les téléchargements Windows](https://github.com/JPVrel/AppReccueil/actions/runs/45819100602), puis télécharger l’artefact `AppReccueil-windows` en bas de la page.
-- **Linux** : [ouvrir les téléchargements Linux](https://github.com/JPVrel/AppReccueil/actions/runs/45819100602), puis télécharger l’artefact `AppReccueil-linux` en bas de la page.
+- **Windows** : ouvrir les [builds Windows, Linux et macOS](https://github.com/JPVrel/AppReccueil/actions/workflows/build-portable-releases.yml), puis télécharger l’artefact `AppReccueil-windows` dans le dernier run réussi.
+- **Linux** : ouvrir les [builds Windows, Linux et macOS](https://github.com/JPVrel/AppReccueil/actions/workflows/build-portable-releases.yml), puis télécharger l’artefact `AppReccueil-linux` dans le dernier run réussi.
+- **macOS** : ouvrir les [builds Windows, Linux et macOS](https://github.com/JPVrel/AppReccueil/actions/workflows/build-portable-releases.yml), puis télécharger l’artefact `AppReccueil-macos` dans le dernier run réussi.
 - [Voir la page des versions publiées](https://github.com/JPVrel/AppReccueil/releases).
 
 Les ZIP du dernier build réussi sont disponibles dans les artefacts du workflow. Ces téléchargements temporaires expirent après 30 jours. Une version publiée apparaîtra sur la page des versions lorsqu’un tag de release sera créé.
@@ -29,6 +30,12 @@ Rscript --vanilla .\shiny\run_app.R 8000
 ```
 
 **Linux, dans un terminal :**
+
+```sh
+Rscript --vanilla shiny/run_app.R 8000
+```
+
+**macOS, dans Terminal :**
 
 ```sh
 Rscript --vanilla shiny/run_app.R 8000
@@ -61,7 +68,7 @@ Les imports sont limités à 25 Mio, 50 000 lignes, 500 colonnes et 1 million de
 ## Aide et versions
 
 - [Versions publiées](https://github.com/JPVrel/AppReccueil/releases)
-- [Derniers ZIP Windows et Linux](https://github.com/JPVrel/AppReccueil/actions/runs/45819100602)
+- [Derniers ZIP Windows, Linux et macOS](https://github.com/JPVrel/AppReccueil/actions/workflows/build-portable-releases.yml)
 - [Signaler un problème](https://github.com/JPVrel/AppReccueil/issues)
 
 ## Informations développeur
@@ -111,9 +118,9 @@ Pour construire hors CI, faites le build sur chaque système cible : Linux, Wind
 
 ### CI et publications GitHub
 
-Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu et Windows avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit les ZIP puis les publie comme artefacts conservés 30 jours.
+Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu, Windows et macOS avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit les trois ZIP puis les publie comme artefacts conservés 30 jours.
 
-Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les ZIP Linux et Windows. La page des releases est [ici](https://github.com/JPVrel/AppReccueil/releases). Une release taguée est le lien de téléchargement durable ; les artefacts d’un run Actions sont temporaires.
+Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. La page des releases est [ici](https://github.com/JPVrel/AppReccueil/releases). Une release taguée est le lien de téléchargement durable ; les artefacts d’un run Actions sont temporaires.
 
 ### Développement local
 
