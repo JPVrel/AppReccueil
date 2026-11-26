@@ -5,6 +5,13 @@ testthat::test_that("runtime packages contain Shiny", {
   )
 })
 
+testthat::test_that("dependency profiles include their direct packages", {
+  testthat::expect_setequal(dependency_packages("runtime"), runtime_packages())
+  testthat::expect_true(all(c("testthat", "htmltools") %in% dependency_packages("development")))
+  testthat::expect_true("RPostgres" %in% dependency_packages("postgres"))
+  testthat::expect_error(dependency_packages("unknown"), "'arg' should be one of")
+})
+
 testthat::test_that("missing_packages identifies unavailable packages", {
   installed_fn <- function(package) identical(package, "shiny")
 

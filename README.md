@@ -7,65 +7,74 @@ Application Shiny locale en cours d'expérimentation pour préparer et gérer un
 
 ## Démarrage rapide
 
+### Prérequis communs
+
+- R 4.4 ou supérieur et un accès à CRAN pendant l'installation.
+- Le profil `runtime` installe les packages utilisés par l'application : `shiny`, `DT`, `DBI`, `RSQLite`, `yaml`, `writexl`, `readxl` et `openssl`.
+- Le profil `development` ajoute `testthat` et `htmltools`, utilisés directement par les tests.
+- Le profil `postgres` ajoute `RPostgres` pour le mode distant optionnel.
+
+`renv.lock` contient actuellement les versions résolues avec R 4.6.2. Le script d'installation installe les versions CRAN compatibles avec la version de R présente ; pour reproduire exactement le verrou, utilisez la version de R inscrite dans le lockfile et `renv::restore()`.
+
+### Windows
+
+Installez R pour Windows depuis CRAN. Rtools n'est généralement pas nécessaire : `install.packages()` utilise les binaires Windows lorsqu'ils sont disponibles. Rtools n'est requis que si un package doit être compilé depuis les sources.
+
+Dans PowerShell, depuis la racine du dépôt :
+
+```powershell
+Rscript --vanilla .\scripts\install_dependencies.R
+Rscript --vanilla .\shiny\run_app.R 8000
+```
+
+Ouvrez ensuite <http://127.0.0.1:8000>. Pour utiliser la fenêtre Tcl/Tk, démarrez RStudio ou Positron avec Tcl/Tk disponible, puis exécutez depuis la racine `source("launcher.R")`.
+
+### Linux
+
+Sur Ubuntu/Debian, installez R et les bibliothèques nécessaires à la compilation des dépendances CRAN :
+
+```sh
+sudo apt update
+sudo apt install r-base r-base-dev libssl-dev libcurl4-openssl-dev libxml2-dev
+```
+
+Le lanceur graphique est facultatif. Pour l'utiliser, installez aussi Tcl/Tk et un outil de détection de processus (`lsof` ou `iproute2`, qui fournit `ss`) :
+
+```sh
+sudo apt install tcl tk lsof
+```
+
+Puis, depuis la racine du dépôt :
+
+```sh
+Rscript --vanilla scripts/install_dependencies.R
+Rscript --vanilla shiny/run_app.R 8000
+```
+
+Ouvrez <http://127.0.0.1:8000>. Pour utiliser la fenêtre Tcl/Tk dans une session graphique, lancez depuis RStudio/Positron `source("launcher.R")`. Sur les autres distributions, installez l'équivalent de `r-base`, `r-base-dev`, `libssl-dev`, `libcurl` et `libxml2` avec le gestionnaire de paquets de la distribution. RSQLite embarque SQLite ; `libsqlite3-dev` n'est pas requis.
+
 ### macOS
 
-1. Installez R 4.4 ou supérieur et OpenSSL 3 :
+Installez R 4.4 ou supérieur et OpenSSL 3 avec Homebrew :
 
 ```sh
 brew install openssl@3
 ```
 
-2. Depuis RStudio/Positron, ouvrez le dossier du projet puis exécutez :
+Depuis RStudio/Positron, à la racine du projet :
 
 ```r
 source("scripts/install_dependencies.R")
 source("launcher.R")
 ```
 
-Le lanceur Tcl/Tk ouvre une fenêtre locale sur `127.0.0.1:8000`. Si `tcltk` est indisponible, lancez directement :
+Ou démarrez directement le serveur :
 
 ```sh
 Rscript --vanilla shiny/run_app.R 8000
 ```
 
-### Linux
-
-Installez R, les bibliothèques SQLite/OpenSSL et les outils Tcl/Tk selon votre distribution. Exemples Ubuntu/Debian :
-
-```sh
-sudo apt update
-sudo apt install r-base r-base-dev libsqlite3-dev libssl-dev libcurl4-openssl-dev tk tcl
-```
-
-Puis depuis R :
-
-```r
-source("scripts/install_dependencies.R")
-source("launcher.R")
-```
-
-Alternative sans interface Tcl/Tk :
-
-```sh
-Rscript --vanilla shiny/run_app.R 8000
-```
-
-### Windows
-
-Installez R depuis CRAN et lancez RStudio/Positron en laissant `tcltk` dans le chemin R standard. Depuis RStudio/Positron :
-
-```r
-source("scripts/install_dependencies.R")
-source("launcher.R")
-```
-
-Alternative PowerShell :
-
-```powershell
-Rscript --vanilla .\shiny\run_app.R 8000
-```
-
-Dans tous les cas, ouvrez <http://127.0.0.1:8000>. Sur macOS et Linux, utilisez `Control-C` dans le terminal pour arrêter un serveur lancé directement. Sur Windows, fermez le terminal R ou utilisez le lanceur « Tout quitter ».
+Dans tous les cas, ouvrez <http://127.0.0.1:8000>. Arrêtez un serveur lancé directement avec `Control-C` dans le terminal. La fenêtre Tcl/Tk lance le serveur comme processus séparé et l'arrête en cliquant sur **Tout quitter**.
 
 ## Ce que l'application fait
 
@@ -78,15 +87,28 @@ Dans tous les cas, ouvrez <http://127.0.0.1:8000>. Sur macOS et Linux, utilisez 
 
 La saisie manuelle se fait dans l'onglet **Questionnaire**, avec les champs générés selon la structure de la base.
 
-## Installation
+## Installer les dépendances
 
-Depuis la racine du projet, dans R :
+Le script installe uniquement les packages absents. Sans option, il installe le profil `runtime`. On peut aussi le lancer depuis RStudio/Positron avec `source("scripts/install_dependencies.R")`.
 
-```r
-source("scripts/install_dependencies.R")
+```sh
+Rscript --vanilla scripts/install_dependencies.R
 ```
 
-Le script installe les dépendances Shiny, DBI, SQLite, import/export et test. Sur macOS, installe d'abord OpenSSL 3 avec `brew install openssl@3` ; le script configure ensuite le package R `openssl`.
+Pour exécuter les tests, installez le profil `development` :
+
+```sh
+Rscript --vanilla scripts/install_dependencies.R --profile development
+Rscript --vanilla -e 'testthat::test_dir("tests/testthat")'
+```
+
+Pour le mode PostgreSQL distant, installez `RPostgres` avec le profil dédié, puis configurez les identifiants par variables d'environnement comme décrit plus bas :
+
+```sh
+Rscript --vanilla scripts/install_dependencies.R --profile postgres
+```
+
+Sur Linux, `libssl-dev`, `libcurl4-openssl-dev` et `libxml2-dev` sont les prérequis système conseillés pour compiler les dépendances R depuis CRAN. Sur macOS, le script configure OpenSSL depuis Homebrew lorsqu'il trouve `openssl@3`. Sur Windows, les binaires CRAN évitent normalement la compilation locale.
 
 ## Utiliser l'accueil
 
@@ -133,7 +155,7 @@ Le lanceur local écoute uniquement sur `127.0.0.1`. Le mode PostgreSQL distant 
 
 ## PostgreSQL (option avancée)
 
-Le mode distant se configure dans `config/database.yml`. Il ne bénéficie pas du coffre local `.sqlite.enc` : configure TLS côté serveur, un compte SQL aux droits minimaux et une authentification avant toute mise en réseau.
+Le mode distant se configure dans `config/database.yml`. Il ne bénéficie pas du coffre local `.sqlite.enc` : configurez TLS côté serveur, un compte SQL aux droits minimaux et une authentification avant toute mise en réseau.
 
 ```yaml
 database:
@@ -151,14 +173,14 @@ database:
       password_env: RECUEIL_DB_PASSWORD
 ```
 
-Installez le driver dans la version de R utilisée (`install.packages("RPostgres")`) et définissez `RECUEIL_DB_USER` et `RECUEIL_DB_PASSWORD` dans l'environnement avant le lancement. Ne placez jamais de secrets dans ce fichier ou dans Git.
+Installez le profil `postgres` et définissez `RECUEIL_DB_USER` et `RECUEIL_DB_PASSWORD` dans l'environnement avant le lancement. Ne placez jamais de secrets dans ce fichier ou dans Git.
 
 ## Vérification
 
-Lancer les tests unitaires et d'intégration :
+Après avoir installé le profil `development`, lancez les tests unitaires et d'intégration :
 
-```r
-testthat::test_dir("tests/testthat")
+```sh
+Rscript --vanilla -e 'testthat::test_dir("tests/testthat")'
 ```
 
 Les dépendances R verrouillées sont consignées dans `renv.lock`. Pour vérifier les vulnérabilités des paquets R, utilisez OSV-Scanner, qui prend en charge ce format :
@@ -173,7 +195,7 @@ Restaurer les versions verrouillées ou mettre le lockfile à jour :
 install.packages("renv")
 renv::restore()
 renv::snapshot(
-  packages = c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl", "testthat"),
+  packages = c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl", "testthat", "htmltools"),
   prompt = FALSE
 )
 ```

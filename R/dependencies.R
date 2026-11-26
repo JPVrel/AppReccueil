@@ -3,9 +3,29 @@ runtime_packages <- function() {
   c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl")
 }
 
-# Packages utilisés pour l'application et son développement.
+# Packages directs utilisés par les tests et le développement.
+development_packages <- function() {
+  c(runtime_packages(), "testthat", "htmltools")
+}
+
+# Packages directs de l'option PostgreSQL distante.
+postgres_packages <- function() {
+  c(runtime_packages(), "RPostgres")
+}
+
+# Conserve ce nom pour les appels historiques qui demandaient les dépendances de test.
 required_packages <- function() {
-  c(runtime_packages(), "testthat")
+  development_packages()
+}
+
+dependency_packages <- function(profile = c("runtime", "development", "postgres")) {
+  profile <- match.arg(profile)
+  switch(
+    profile,
+    runtime = runtime_packages(),
+    development = development_packages(),
+    postgres = postgres_packages()
+  )
 }
 
 # Retourne uniquement les packages absents. installed_fn est injectable
