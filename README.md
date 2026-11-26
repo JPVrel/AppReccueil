@@ -36,7 +36,18 @@ Rscript --vanilla shiny/run_app.R 8000
 
 **macOS, dans Terminal :**
 
+macOS peut mettre en quarantaine les bibliothèques R contenues dans un ZIP téléchargé. Si R affiche `library load disallowed by system policy` ou une erreur de signature lors du chargement d’un fichier `.so`, ouvrez Terminal et retirez la quarantaine du dossier extrait :
+
 ```sh
+xattr -dr com.apple.quarantine "$HOME/Downloads/AppReccueil"
+```
+
+Cette commande concerne uniquement le dossier extrait de la release officielle AppReccueil. Ne l’utilisez pas sur un téléchargement dont vous ne connaissez pas la provenance. Si vous avez extrait l’application ailleurs que dans `Téléchargements`, remplacez le chemin par celui de votre dossier `AppReccueil`.
+
+Puis, depuis le dossier extrait, lancez le serveur :
+
+```sh
+cd "$HOME/Downloads/AppReccueil"
 Rscript --vanilla shiny/run_app.R 8000
 ```
 
