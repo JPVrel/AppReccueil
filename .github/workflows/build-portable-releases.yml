@@ -24,7 +24,7 @@ jobs:
             target: linux
           - os: windows-latest
             target: windows
-          - os: macos-latest
+          - os: macos-15
             target: macos
 
     steps:
