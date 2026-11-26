@@ -8,14 +8,26 @@ source(file.path(project_dir, "R", "dependencies.R"))
 source(file.path(project_dir, "R", "package_library.R"))
 
 script_args <- commandArgs(trailingOnly = TRUE)
-if (length(script_args) == 0L) {
-  output_file <- NULL
-} else if (length(script_args) == 1L && startsWith(script_args[[1]], "--output=")) {
-  output_file <- sub("^--output=", "", script_args[[1]])
-} else if (length(script_args) == 2L && identical(script_args[[1]], "--output")) {
-  output_file <- script_args[[2]]
-} else {
-  stop("Usage: Rscript scripts/build_release.R [--output path/to/release.zip]")
+output_file <- NULL
+source_library <- Sys.getenv("APPRECUEIL_BUILD_LIBRARY", unset = "")
+argument_index <- 1L
+
+while (argument_index <= length(script_args)) {
+  argument <- script_args[[argument_index]]
+  if (startsWith(argument, "--output=")) {
+    output_file <- sub("^--output=", "", argument)
+  } else if (identical(argument, "--output") && argument_index < length(script_args)) {
+    argument_index <- argument_index + 1L
+    output_file <- script_args[[argument_index]]
+  } else if (startsWith(argument, "--library=")) {
+    source_library <- sub("^--library=", "", argument)
+  } else if (identical(argument, "--library") && argument_index < length(script_args)) {
+    argument_index <- argument_index + 1L
+    source_library <- script_args[[argument_index]]
+  } else {
+    stop("Usage: Rscript scripts/build_release.R [--output path.zip] [--library package-library]")
+  }
+  argument_index <- argument_index + 1L
 }
 
 r_minor <- strsplit(R.version$minor, ".", fixed = TRUE)[[1]][[1]]
@@ -91,19 +103,51 @@ for (directory in c("data", "exports")) {
   writeLines(character(), file.path(output_directory, ".gitkeep"))
 }
 
-if (!requireNamespace("renv", quietly = TRUE)) {
-  utils::install.packages("renv", repos = "https://cloud.r-project.org")
-}
-
 library_path <- project_package_library_path(release_dir)
 dir.create(library_path, recursive = TRUE, showWarnings = FALSE)
-renv::restore(
-  project = release_dir,
-  lockfile = file.path(release_dir, "renv.lock"),
-  library = library_path,
-  packages = runtime_packages(),
-  prompt = FALSE
-)
+
+if (nzchar(source_library)) {
+  source_library <- normalizePath(source_library, mustWork = TRUE)
+  available_packages <- utils::installed.packages(lib.loc = source_library)
+  missing_runtime <- setdiff(runtime_packages(), rownames(available_packages))
+  if (length(missing_runtime) > 0L) {
+    stop("Packages runtime absents de la bibliothèque source : ", paste(missing_runtime, collapse = ", "))
+  }
+
+  dependency_tree <- tools::package_dependencies(
+    runtime_packages(),
+    db = available_packages,
+    which = c("Depends", "Imports", "LinkingTo"),
+    recursive = TRUE
+  )
+  runtime_closure <- unique(c(runtime_packages(), unlist(dependency_tree, use.names = FALSE)))
+  runtime_closure <- intersect(runtime_closure, rownames(available_packages))
+
+  for (package in runtime_closure) {
+    copied <- file.copy(
+      file.path(source_library, package),
+      library_path,
+      recursive = TRUE,
+      copy.mode = TRUE,
+      copy.date = TRUE
+    )
+    if (!copied) {
+      stop("Impossible de copier le package runtime : ", package)
+    }
+  }
+} else {
+  if (!requireNamespace("renv", quietly = TRUE)) {
+    utils::install.packages("renv", repos = "https://cloud.r-project.org")
+  }
+
+  renv::restore(
+    project = release_dir,
+    lockfile = file.path(release_dir, "renv.lock"),
+    library = library_path,
+    packages = runtime_packages(),
+    prompt = FALSE
+  )
+}
 
 installed_packages <- rownames(utils::installed.packages(lib.loc = library_path))
 missing_packages <- setdiff(runtime_packages(), installed_packages)

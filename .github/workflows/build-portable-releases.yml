@@ -15,6 +15,9 @@ jobs:
   build:
     name: Build ${{ matrix.target }} release
     runs-on: ${{ matrix.os }}
+    env:
+      R_LIBS_USER: ${{ runner.temp }}/AppReccueil-R-library
+      APPRECUEIL_BUILD_LIBRARY: ${{ runner.temp }}/AppReccueil-R-library
     strategy:
       fail-fast: false
       matrix:
@@ -45,6 +48,9 @@ jobs:
             libuv1-dev \
             libxml2-dev \
             zlib1g-dev
+
+      - name: Prepare package library
+        run: Rscript --vanilla -e 'dir.create(Sys.getenv("R_LIBS_USER"), recursive = TRUE, showWarnings = FALSE)'
 
       - name: Install test dependencies
         run: Rscript --vanilla scripts/install_dependencies.R --profile development
