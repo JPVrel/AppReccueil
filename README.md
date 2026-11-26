@@ -161,6 +161,31 @@ Lancer les tests unitaires et d'intégration :
 testthat::test_dir("tests/testthat")
 ```
 
+Les dépendances R verrouillées sont consignées dans `renv.lock`. Pour vérifier les vulnérabilités des paquets R, utilisez OSV-Scanner, qui prend en charge ce format :
+
+```sh
+osv-scanner scan source -r .
+```
+
+Restaurer les versions verrouillées ou mettre le lockfile à jour :
+
+```r
+install.packages("renv")
+renv::restore()
+renv::snapshot(
+  packages = c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl", "testthat"),
+  prompt = FALSE
+)
+```
+
+Trivy reste utile pour les secrets et les mauvaises configurations, mais ne prend pas en charge les dépendances CRAN/R.
+
+Pour analyser toutes les sources R et tous les tests, y compris les fichiers ignorés par Git :
+
+```sh
+sh scripts/run_semgrep.sh
+```
+
 Le journal des validations adversariales et les limites connues sont consignés dans [docs/TESTS_AND_DATABASE_SECURITY.md](docs/TESTS_AND_DATABASE_SECURITY.md).
 
 ## État du projet

@@ -306,6 +306,41 @@ testthat::test_that("an abandoned encrypted lock is retained when its workspace 
   testthat::expect_true(dir.exists(stale$lock_path))
 })
 
+testthat::test_that("an abandoned workspace that fails integrity check is retained for manual recovery", {
+  vault_path <- tempfile(fileext = ".sqlite.enc")
+  on.exit(unlink(c(vault_path, paste0(vault_path, ".active")), recursive = TRUE), add = TRUE)
+  password <- "corrupt-workspace-password"
+  create_database_vault(vault_path, password)
+  stale <- open_database_vault(vault_path, password)
+  on.exit(unlink(stale$workspace, recursive = TRUE), add = TRUE)
+  DBI::dbDisconnect(stale$connection)
+  working_database <- file.path(stale$workspace, "working.sqlite")
+  corruption_connection <- DBI::dbConnect(RSQLite::SQLite(), working_database)
+  DBI::dbExecute(
+    corruption_connection,
+    "CREATE TABLE integrity_probe (value INTEGER CHECK (value > 0))"
+  )
+  DBI::dbExecute(corruption_connection, "PRAGMA ignore_check_constraints = ON")
+  DBI::dbExecute(corruption_connection, "INSERT INTO integrity_probe VALUES (-1)")
+  DBI::dbDisconnect(corruption_connection)
+  owner <- readRDS(database_lock_owner_path(stale$lock_path))
+  owner$pid <- .Machine$integer.max
+  saveRDS(owner, database_lock_owner_path(stale$lock_path))
+  original_vault <- readBin(vault_path, what = "raw", n = file.info(vault_path)$size)
+
+  testthat::expect_error(
+    open_database_vault(vault_path, password),
+    "copie de travail abandonnée n'est pas intègre"
+  )
+  testthat::expect_identical(
+    readBin(vault_path, what = "raw", n = file.info(vault_path)$size),
+    original_vault
+  )
+  testthat::expect_true(file.exists(working_database))
+  testthat::expect_true(dir.exists(stale$lock_path))
+  testthat::expect_true(dir.exists(stale$workspace))
+})
+
 testthat::test_that("encrypted spreadsheet downloads retain format behind the vault", {
   work_dir <- tempfile("encrypted-export-")
   dir.create(work_dir)

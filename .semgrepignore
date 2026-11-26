@@ -1,0 +1,1 @@
+# Keep Semgrep's default test exclusions disabled; code paths are selected by scripts/run_semgrep.sh.
