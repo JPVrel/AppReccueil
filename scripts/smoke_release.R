@@ -39,7 +39,7 @@ server <- processx::process$new(
 )
 on.exit(if (server$is_alive()) server$kill(), add = TRUE)
 
-response_status <- function(port) {
+read_app_response <- function(port) {
   connection <- tryCatch(
     suppressWarnings(
       socketConnection(
@@ -61,7 +61,20 @@ response_status <- function(port) {
     c("GET / HTTP/1.1", "Host: 127.0.0.1", "Connection: close", ""),
     connection
   )
-  readLines(connection, n = 1L, warn = FALSE)
+  response_lines <- readLines(connection, warn = FALSE)
+  if (length(response_lines) == 0L) {
+    return(NULL)
+  }
+
+  header_end <- which(!nzchar(response_lines))
+  if (length(header_end) == 0L) {
+    return(list(status = response_lines[[1]], body = ""))
+  }
+
+  list(
+    status = response_lines[[1]],
+    body = paste(response_lines[seq.int(header_end[[1]] + 1L, length(response_lines))], collapse = "\n")
+  )
 }
 
 deadline <- Sys.time() + 30
@@ -75,21 +88,36 @@ while (Sys.time() < deadline) {
       server$read_all_error()
     )
   }
-  http_status <- response_status(port)
-  if (!is.null(http_status)) {
+  http_response <- read_app_response(port)
+  if (!is.null(http_response)) {
     break
   }
   Sys.sleep(0.25)
 }
 
-if (is.null(http_status) || !grepl("^HTTP/1[.]1 200", http_status)) {
+if (is.null(http_response) || !grepl("^HTTP/1[.]1 200", http_response$status)) {
   stop(
     "Le serveur n'a pas répondu HTTP 200 dans le délai imparti. Réponse : ",
-    if (is.null(http_status)) "aucune" else http_status, "\n",
+    if (is.null(http_response)) "aucune" else http_response$status, "\n",
     server$read_all_output(), "\n",
     server$read_all_error()
   )
 }
 
+visible_home_content <- c("Application de recueil", "Votre espace de données", "Importer des données")
+missing_content <- visible_home_content[!vapply(
+  visible_home_content,
+  grepl,
+  logical(1),
+  x = http_response$body,
+  fixed = TRUE
+)]
+if (length(missing_content) > 0L) {
+  stop(
+    "La page HTTP répond, mais son contenu d'accueil est incomplet. Éléments absents : ",
+    paste(missing_content, collapse = ", ")
+  )
+}
+
 invisible(server$kill())
-cat("Smoke test réussi : l'archive extraite démarre Shiny et répond HTTP 200.\n")
+cat("Smoke test réussi : Shiny démarre, répond HTTP 200 et affiche les contrôles d'accueil.\n")
