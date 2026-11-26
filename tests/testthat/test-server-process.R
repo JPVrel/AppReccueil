@@ -89,3 +89,12 @@ testthat::test_that("stop_server_process verifies the port and escalates", {
   testthat::expect_equal(terminated, 4321L)
   testthat::expect_true(4321L %in% forced)
 })
+
+testthat::test_that("parse_windows_listening_pids extracts listening TCP PIDs", {
+  lines <- c(
+    "  TCP    127.0.0.1:8000        0.0.0.0:0              LISTENING       4321",
+    "  TCP    127.0.0.1:8001        0.0.0.0:0              LISTENING       4322"
+  )
+
+  testthat::expect_equal(parse_windows_listening_pids(lines, 8000), 4321L)
+})

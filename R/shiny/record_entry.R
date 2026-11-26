@@ -75,7 +75,7 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
     form_generation()
     active <- active_connection()
     if (is.null(active)) {
-      return(shiny::p("Ouvre une base avant de remplir le questionnaire."))
+      return(shiny::p("Ouvrez une base avant de remplir le questionnaire."))
     }
 
     definitions <- active_record_field_definitions(active)
@@ -163,7 +163,7 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
 
   shiny::observeEvent(input$new_record, {
     if (is.null(current_connection())) {
-      record_status("Ouvre une base avant de créer une observation.")
+      record_status("Ouvrez une base avant de créer une observation.")
       return()
     }
     reset_questionnaire()
@@ -214,7 +214,7 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
   shiny::observeEvent(input$save_record, {
     active <- current_connection()
     if (is.null(active)) {
-      record_status("Ouvre une base avant d'enregistrer une observation.")
+      record_status("Ouvrez une base avant d'enregistrer une observation.")
       return()
     }
     tryCatch({
@@ -240,7 +240,7 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
     active <- current_connection()
     record_id <- editing_record_id()
     if (is.null(active) || is.null(record_id)) {
-      record_status("Ouvre une observation avant de la masquer.")
+      record_status("Ouvrez une observation avant de la masquer.")
       return()
     }
     shiny::showModal(shiny::modalDialog(
@@ -339,7 +339,7 @@ deleted_items_server <- function(input, output, session, connection, refresh_tri
   shiny::observeEvent(input$restore_deleted_column, {
     active <- active_connection()
     if (is.null(active)) {
-      status("Ouvre une base avant de restaurer une colonne.")
+      status("Ouvrez une base avant de restaurer une colonne.")
       return()
     }
     tryCatch({
@@ -360,7 +360,7 @@ deleted_items_server <- function(input, output, session, connection, refresh_tri
   shiny::observeEvent(input$restore_deleted_record, {
     active <- active_connection()
     if (is.null(active)) {
-      status("Ouvre une base avant de restaurer une observation.")
+      status("Ouvrez une base avant de restaurer une observation.")
       return()
     }
     tryCatch({

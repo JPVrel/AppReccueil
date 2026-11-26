@@ -182,7 +182,7 @@ encrypted_database_spreadsheet_download_handler <- function(
   shiny::downloadHandler(
     filename = function() {
       if (is.null(shiny::isolate(vault_state()))) {
-        stop("Ouvre une base avant d'exporter.")
+        stop("Ouvrez une base avant d'exporter.")
       }
       password <- read_export_password()
       export_path <- reserve_export(password)
@@ -192,7 +192,7 @@ encrypted_database_spreadsheet_download_handler <- function(
     content = function(file) {
       vault <- shiny::isolate(vault_state())
       if (is.null(vault)) {
-        stop("Ouvre une base chiffrée avant d'exporter.")
+        stop("Ouvrez une base chiffrée avant d'exporter.")
       }
 
       export <- shiny::isolate(current_export())
@@ -237,7 +237,7 @@ spreadsheet_header_edit_target <- function(definitions, header_name) {
     return(NULL)
   }
   if (nrow(active) > 1L) {
-    stop("L'en-tête sélectionné est ambigu ; corrige les noms de variables avant édition.")
+    stop("L'en-tête sélectionné est ambigu ; corrigez les noms de variables avant édition.")
   }
 
   active

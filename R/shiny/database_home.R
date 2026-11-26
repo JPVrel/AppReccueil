@@ -64,7 +64,7 @@ database_home_server <- function(
       {
         rds_upload <- grepl("[.]rds([.]enc)?$", tolower(input$import_file$name))
         if (rds_upload && !isTRUE(input$confirm_trusted_rds)) {
-          stop("Le RDS n'a pas été chargé. Confirme que le fichier provient d'une source de confiance.")
+          stop("Le RDS n'a pas été chargé. Confirmez que le fichier provient d'une source de confiance.")
         }
         read_database_import_upload(
           input$import_file$datapath,
@@ -89,7 +89,7 @@ database_home_server <- function(
     for (field_name in names(imported)) {
       type <- input[[paste0("import_type__", field_name)]]
       if (is.null(type) || !type %in% column_definition_types()) {
-        stop("Choisis un type pour chaque colonne avant de créer la base.")
+        stop("Choisissez un type pour chaque colonne avant de créer la base.")
       }
       types[[field_name]] <- type
     }
@@ -173,7 +173,7 @@ database_home_server <- function(
       ))
     }
     if (length(controls) == 0L) {
-      controls <- list(shiny::p("Aucune base locale n'existe encore. Crée une base ou importe un fichier."))
+      controls <- list(shiny::p("Aucune base locale n'existe encore. Créez une base ou importez un fichier."))
     }
     do.call(shiny::tagList, controls)
   })
@@ -460,7 +460,7 @@ database_home_server <- function(
       } else {
         shiny::showModal(shiny::modalDialog(
           title = paste(length(plan$conflicts), "conflit(s) à arbitrer"),
-          shiny::p("Choisis quelle valeur conserver pour chaque champ en conflit. Rien ne sera appliqué avant validation."),
+          shiny::p("Choisissez quelle valeur conserver pour chaque champ en conflit. Rien ne sera appliqué avant validation."),
           shiny::uiOutput("merge_conflict_choices"),
           footer = shiny::tagList(
             shiny::actionButton("apply_import_conflicts", "Appliquer les choix", class = "btn-primary"),

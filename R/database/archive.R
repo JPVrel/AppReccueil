@@ -112,7 +112,7 @@ restore_column <- function(connection, column_id, new_name = NULL) {
     active <- list_column_definitions(connection)
     physical_names <- setdiff(list_record_columns(connection), current_definition$sql_name)
     if (tolower(new_name) %in% tolower(c(protected_record_columns(), active$name, physical_names))) {
-      stop("Ce nom de colonne est déjà utilisé. Choisis une autre entête.")
+      stop("Ce nom de colonne est déjà utilisé. Choisissez une autre entête.")
     }
     new_name
   }

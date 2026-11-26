@@ -73,7 +73,7 @@ optional_vault_password <- function(password, confirmation = NULL) {
     return(NULL)
   }
   if (password_empty || confirmation_empty) {
-    stop("Renseigne et confirme le mot de passe, ou laisse les deux champs vides.")
+    stop("Renseignez et confirmez le mot de passe, ou laissez les deux champs vides.")
   }
 
   validate_vault_password(password, confirmation)

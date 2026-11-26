@@ -7,16 +7,65 @@ Application Shiny locale en cours d'expérimentation pour préparer et gérer un
 
 ## Démarrage rapide
 
-Prérequis : R, Positron ou RStudio. Sur macOS, OpenSSL 3 est requis pour installer le chiffrement : `brew install openssl@3`.
+### macOS
 
-Dans la console R, depuis la racine du projet :
+1. Installez R 4.4 ou supérieur et OpenSSL 3 :
+
+```sh
+brew install openssl@3
+```
+
+2. Depuis RStudio/Positron, ouvrez le dossier du projet puis exécutez :
 
 ```r
 source("scripts/install_dependencies.R")
 source("launcher.R")
 ```
 
-Le lanceur ouvre l'application dans le navigateur, normalement à l'adresse <http://127.0.0.1:8000>. Dans Positron, `app.R` peut aussi être lancé avec **Run App**.
+Le lanceur Tcl/Tk ouvre une fenêtre locale sur `127.0.0.1:8000`. Si `tcltk` est indisponible, lancez directement :
+
+```sh
+Rscript --vanilla shiny/run_app.R 8000
+```
+
+### Linux
+
+Installez R, les bibliothèques SQLite/OpenSSL et les outils Tcl/Tk selon votre distribution. Exemples Ubuntu/Debian :
+
+```sh
+sudo apt update
+sudo apt install r-base r-base-dev libsqlite3-dev libssl-dev libcurl4-openssl-dev tk tcl
+```
+
+Puis depuis R :
+
+```r
+source("scripts/install_dependencies.R")
+source("launcher.R")
+```
+
+Alternative sans interface Tcl/Tk :
+
+```sh
+Rscript --vanilla shiny/run_app.R 8000
+```
+
+### Windows
+
+Installez R depuis CRAN et lancez RStudio/Positron en laissant `tcltk` dans le chemin R standard. Depuis RStudio/Positron :
+
+```r
+source("scripts/install_dependencies.R")
+source("launcher.R")
+```
+
+Alternative PowerShell :
+
+```powershell
+Rscript --vanilla .\shiny\run_app.R 8000
+```
+
+Dans tous les cas, ouvrez <http://127.0.0.1:8000>. Sur macOS et Linux, utilisez `Control-C` dans le terminal pour arrêter un serveur lancé directement. Sur Windows, fermez le terminal R ou utilisez le lanceur « Tout quitter ».
 
 ## Ce que l'application fait
 
@@ -41,7 +90,7 @@ Le script installe les dépendances Shiny, DBI, SQLite, import/export et test. S
 
 ## Utiliser l'accueil
 
-Au démarrage, l'application recherche les bases dans `data/` et te propose :
+Au démarrage, l'application recherche les bases dans `data/` et vous propose :
 
 - d'ouvrir une base SQLite sans chiffrement ;
 - d'ouvrir un coffre `.sqlite.enc` avec son mot de passe ;
@@ -52,17 +101,17 @@ La copie chiffrée d'une ancienne base ne supprime pas l'original : celui-ci res
 
 ### Importer ou fusionner
 
-L'accueil accepte CSV, Excel (`.xlsx`) et RDS. Les limites sont 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. À la création depuis un fichier, choisis le type de chaque colonne.
+L'accueil accepte CSV, Excel (`.xlsx`) et RDS. Les limites sont 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. À la création depuis un fichier, choisissez le type de chaque colonne.
 
-**Attention au format RDS :** c'est une sérialisation d'objets R. Une case de confirmation est obligatoire ; n'importe que des fichiers provenant d'une source de confiance. Les fichiers chiffrés `.enc` demandent leur mot de passe.
+**Attention au format RDS :** c'est une sérialisation d'objets R. Une case de confirmation est obligatoire ; ne chargez que des fichiers provenant d'une source de confiance. Les fichiers chiffrés `.enc` demandent leur mot de passe.
 
-Pour fusionner dans une base déjà ouverte, choisis une colonne identifiante unique présente dans les deux sources. Les nouvelles observations sont ajoutées, les cellules vides sont complétées et chaque conflit demande quelle valeur conserver. La structure de la base est préservée : les colonnes inconnues du fichier sont ignorées. Si la base change pendant la boîte d'arbitrage, l'opération est annulée et doit être relancée.
+Pour fusionner dans une base déjà ouverte, choisissez une colonne identifiante unique présente dans les deux sources. Les nouvelles observations sont ajoutées, les cellules vides sont complétées et chaque conflit demande quelle valeur conserver. La structure de la base est préservée : les colonnes inconnues du fichier sont ignorées. Si la base change pendant la boîte d'arbitrage, l'opération est annulée et doit être relancée.
 
 ### Consulter et gérer les données
 
 **Base de données** fournit le tableur central en lecture seule : tri, recherche, filtres, pagination et export CSV, Excel ou RDS. Un double-clic sur une ligne ouvre cette observation dans **Questionnaire** pour la modifier. Le questionnaire permet aussi de créer une observation et de choisir son ID.
 
-Une observation supprimée est masquée, pas effacée. L'onglet **Éléments supprimés** liste séparément les colonnes et observations masquées et permet de les restaurer. Si l'ID ou l'entête d'origine est déjà utilisé, renseigne un nouvel ID ou une nouvelle entête avant la restauration.
+Une observation supprimée est masquée, pas effacée. L'onglet **Éléments supprimés** liste séparément les colonnes et observations masquées et permet de les restaurer. Si l'ID ou l'entête d'origine est déjà utilisé, renseignez un nouvel ID ou une nouvelle entête avant la restauration.
 
 **Gestion des variables** permet d'ajouter, renommer, masquer/restaurer des champs, gérer les catégories et construire des formules dérivées. Le double-clic sur un en-tête ouvre l'édition de la variable correspondante. Les champs masqués restent stockés ; ils ne sont pas supprimés.
 
@@ -102,7 +151,7 @@ database:
       password_env: RECUEIL_DB_PASSWORD
 ```
 
-Installe le driver dans la version de R utilisée (`install.packages("RPostgres")`) et définis `RECUEIL_DB_USER` et `RECUEIL_DB_PASSWORD` dans l'environnement avant le lancement. Ne place jamais de secrets dans ce fichier ou dans Git.
+Installez le driver dans la version de R utilisée (`install.packages("RPostgres")`) et définissez `RECUEIL_DB_USER` et `RECUEIL_DB_PASSWORD` dans l'environnement avant le lancement. Ne placez jamais de secrets dans ce fichier ou dans Git.
 
 ## Vérification
 
@@ -117,3 +166,17 @@ Le journal des validations adversariales et les limites connues sont consignés 
 ## État du projet
 
 Le schéma, la gestion des variables, l'import, la fusion, le questionnaire et la suppression/restauration sont expérimentaux. Ce dépôt n'est pas un produit validé pour un déploiement ou un usage clinique/de recherche en production.
+
+## Architecture V1
+
+| Couche | Responsabilité | Technologie principale |
+| --- | --- | --- |
+| Lanceur local | Ouvre/arrête le serveur Shiny sur `127.0.0.1` | R, Tcl/Tk, PowerShell/terminal |
+| Interface | Onglets Accueil, Questionnaire, Tableur, Variables et Éléments supprimés | Shiny, HTML/CSS |
+| Schéma | Catalogue stable des colonnes, types, masquage et formules | SQLite, YAML |
+| Données | CRUD des observations, valeurs dérivées et restauration logique | DBI, RSQLite |
+| Import/export | CSV, XLSX, RDS, fusion par clé et arbitrage | readxl, writexl, openssl |
+| Sécurité locale | Verrous, coffre AES-GCM, copie privée temporaire | openssl, RSQLite |
+| Tests | Régression, fonctions, Shiny, UI, coffres, imports et processus | testthat |
+
+Les fichiers applicatifs sous `R/database/` gèrent les données, sous `R/shiny/` l'interface, sous `R/launcher/` le processus local, sous `scripts/` l'installation et sous `tests/testthat/` les validations.

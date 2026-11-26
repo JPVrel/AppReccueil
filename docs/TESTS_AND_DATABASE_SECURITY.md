@@ -28,6 +28,7 @@ Ce document garde une trace des validations effectuées et des mesures à prévo
 | 2026-11-25 | Rafraîchissement de la table | Ajout d'une variable via Gestion des variables ; le nouvel en-tête apparaît immédiatement dans Base de données, sans rechargement. |
 | 2026-11-25 | Export CSV | Endpoint navigateur `fetch` : réponse HTTP 200, `text/csv`, disposition `attachment`, 31 observations et variable dérivée incluses, `payload` absent. Test unitaire : export archivé dans un dossier dédié, nom horodaté sans écrasement, valeurs masquées et payload exclus. Le navigateur intégré ne relaie pas toujours son événement natif `download`, le corps CSV a donc aussi été contrôlé via la réponse HTTP. |
 | 2026-11-25 | Session Shiny réelle | WebSocket actif, overlay absent, navigation vers Base de données et Gestion des variables validée ; la session de test utilise une copie temporaire de l'application et de SQLite. |
+| 2026-11-26 | Audit V1 architecture, interface et lancement | Architecture en modules revue ; interface accessible/testée en desktop et mobile ; lanceur rendu compatible macOS/Linux/Windows ; suite complète passée ; textes utilisateur standardisés au vouvoiement. |
 
 ### Matrice des tentatives adversariales
 

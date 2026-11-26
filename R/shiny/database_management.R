@@ -69,7 +69,7 @@ database_management_ui <- function() {
       shiny::div(
         class = "recueil-card recueil-span-6",
         shiny::h3("Variable dérivée"),
-        shiny::p("Choisis deux colonnes. Les résultats sont calculés dynamiquement ; les valeurs manquantes et une division par zéro donnent un résultat manquant."),
+        shiny::p("Choisissez deux colonnes. Les résultats sont calculés dynamiquement ; les valeurs manquantes et une division par zéro donnent un résultat manquant."),
         shiny::textInput("derived_column_name", "Nom de la variable dérivée"),
         shiny::selectInput(
           "formula_mode",

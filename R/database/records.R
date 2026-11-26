@@ -131,7 +131,7 @@ insert_collection_record <- function(connection, values, record_id = NULL) {
   }
   validate_collection_record_id(record_id)
   if (collection_record_exists(connection, record_id)) {
-    stop("Cet ID existe déjà. Choisis un autre ID avant d'enregistrer la ligne.")
+    stop("Cet ID existe déjà. Choisissez un autre ID avant d'enregistrer la ligne.")
   }
   normalized <- normalize_collection_record_values(connection, values)
   record <- data.frame(
@@ -146,7 +146,7 @@ insert_collection_record <- function(connection, values, record_id = NULL) {
   }
   DBI::dbWithTransaction(connection, {
     if (collection_record_exists(connection, record_id)) {
-      stop("Cet ID existe déjà. Choisis un autre ID avant d'enregistrer la ligne.")
+      stop("Cet ID existe déjà. Choisissez un autre ID avant d'enregistrer la ligne.")
     }
     DBI::dbAppendTable(connection, record_table_name(), record)
   })
@@ -171,7 +171,7 @@ update_collection_record <- function(connection, original_id, new_id, values) {
 
   validate_collection_record_id(new_id)
   if (!identical(original_id, new_id) && collection_record_exists(connection, new_id)) {
-    stop("Cet ID existe déjà. Choisis un autre ID avant d'enregistrer la ligne.")
+    stop("Cet ID existe déjà. Choisissez un autre ID avant d'enregistrer la ligne.")
   }
   normalized <- normalize_collection_record_values(connection, values)
   definitions <- active_record_field_definitions(connection)
@@ -186,7 +186,7 @@ update_collection_record <- function(connection, original_id, new_id, values) {
 
   DBI::dbWithTransaction(connection, {
     if (!identical(original_id, new_id) && collection_record_exists(connection, new_id)) {
-      stop("Cet ID existe déjà. Choisis un autre ID avant d'enregistrer la ligne.")
+      stop("Cet ID existe déjà. Choisissez un autre ID avant d'enregistrer la ligne.")
     }
     DBI::dbExecute(
       connection,
@@ -243,7 +243,7 @@ restore_collection_record <- function(connection, record_id, new_id = NULL) {
       stop("La ligne n'existe pas dans les éléments supprimés.")
     }
     if (!identical(record_id, new_id) && collection_record_exists(connection, new_id)) {
-      stop("Cet ID existe déjà. Choisis un autre ID pour restaurer la ligne.")
+      stop("Cet ID existe déjà. Choisissez un autre ID avant d'enregistrer la ligne.")
     }
     restored <- DBI::dbExecute(
       connection,

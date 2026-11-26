@@ -76,7 +76,7 @@ testthat::test_that("database vault creates, opens, and reseals a SQLite databas
   testthat::expect_error(open_database_vault(vault_path, "wrong-password-123"), "Mot de passe incorrect")
   testthat::expect_null(optional_vault_password("", ""))
   testthat::expect_equal(optional_vault_password(password, password), password)
-  testthat::expect_error(optional_vault_password(password, ""), "laisse les deux champs vides")
+  testthat::expect_error(optional_vault_password(password, ""), "laissez les deux champs vides")
 })
 
 testthat::test_that("protecting a legacy SQLite database preserves the source file", {

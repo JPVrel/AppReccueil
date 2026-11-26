@@ -1,12 +1,49 @@
 # macOS fournit lsof, qui permet de retrouver le PID du serveur qui écoute
 # sur le port choisi. L'absence de résultat signifie simplement « pas encore prêt ».
+parse_windows_listening_pids <- function(lines, port) {
+  matching <- grepl(sprintf("127\\.0\\.0\\.1:%d", port), lines, fixed = FALSE)
+  matching_lines <- lines[matching & grepl("\\bLISTENING\\b", lines)]
+  fields <- strsplit(trimws(matching_lines), "\\s+")
+  pids <- vapply(fields, function(parts) {
+    if (length(parts) == 0L) NA_integer_ else suppressWarnings(as.integer(tail(parts, 1L)))
+  }, integer(1))
+  unique(pids[!is.na(pids) & pids > 0L])
+}
+
 find_listening_pids <- function(port, system_runner = system2) {
-  pids <- suppressWarnings(system_runner(
-    "lsof",
-    c(sprintf("-tiTCP:%d", port), "-sTCP:LISTEN"),
-    stdout = TRUE,
-    stderr = FALSE
-  ))
+  platform <- Sys.info()[["sysname"]]
+
+  if (identical(platform, "Windows")) {
+    lines <- suppressWarnings(system_runner(
+      "netstat",
+      c("-ano", "-p", "tcp"),
+      stdout = TRUE,
+      stderr = FALSE
+    ))
+    pids <- parse_windows_listening_pids(lines, port)
+    return(unique(pids[!is.na(pids) & pids > 0L]))
+  }
+
+  if (nzchar(Sys.which("lsof"))) {
+    pids <- suppressWarnings(system_runner(
+      "lsof",
+      c(sprintf("-tiTCP:%d", port), "-sTCP:LISTEN"),
+      stdout = TRUE,
+      stderr = FALSE
+    ))
+  } else if (nzchar(Sys.which("ss"))) {
+    lines <- suppressWarnings(system_runner(
+      "ss",
+      c("-ltnp", sprintf("sport = :%d", port)),
+      stdout = TRUE,
+      stderr = FALSE
+    ))
+    pids <- as.character(regmatches(lines, gregexpr("pid=[0-9]+", lines)))
+    pids <- unlist(pids)
+    pids <- sub("^pid=", "", pids)
+  } else {
+    return(integer())
+  }
 
   as.integer(pids[nzchar(pids)])
 }
