@@ -273,8 +273,7 @@ acquire_database_recovery_claim <- function(lock_path) {
   if (!identical(owner$host, Sys.info()[["nodename"]])) {
     stop("La récupération est en cours sur une autre machine.")
   }
-  owner_pid <- as.integer(owner$pid)
-  if (isTRUE(tryCatch(tools::pskill(owner_pid, signal = 0L), error = function(error) FALSE))) {
+  if (isTRUE(database_owner_process_alive(owner))) {
     stop("La récupération de cette base est déjà en cours dans une autre session.")
   }
   stop("Un verrou de récupération abandonné est présent ; vérifie qu'aucune récupération ne tourne, puis supprime-le manuellement.")
