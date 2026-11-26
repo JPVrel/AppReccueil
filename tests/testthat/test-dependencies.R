@@ -26,7 +26,7 @@ testthat::test_that("the release package library is activated before system libr
     activate_project_package_library(project_dir),
     library_path
   )
-  testthat::expect_identical(.libPaths()[[1]], normalizePath(library_path))
+  testthat::expect_identical(.libPaths()[[1]], normalizePath(library_path, winslash = "/"))
 })
 
 testthat::test_that("release library mismatch explains its build target", {

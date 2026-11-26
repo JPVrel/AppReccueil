@@ -3,6 +3,10 @@ database_value_or <- function(value, fallback) {
   if (is.null(value)) fallback else value
 }
 
+is_absolute_local_path <- function(path) {
+  grepl("^(?:/|[A-Za-z]:[/\\\\]|\\\\\\\\)", path, perl = TRUE)
+}
+
 read_database_config <- function(config_path) {
   raw_config <- yaml::read_yaml(config_path)
   database_config <- raw_config$database
@@ -16,7 +20,11 @@ read_database_config <- function(config_path) {
     stop("Le mode de base de données doit être 'local' ou 'remote'.")
   }
 
-  project_dir <- dirname(dirname(normalizePath(config_path, mustWork = FALSE)))
+  project_dir <- dirname(dirname(normalizePath(
+    config_path,
+    winslash = "/",
+    mustWork = FALSE
+  )))
   database_config$mode <- mode
   database_config$project_dir <- project_dir
 
@@ -25,10 +33,14 @@ read_database_config <- function(config_path) {
       database_config$local$path,
       file.path("data", "recueil.sqlite")
     )
-    if (!grepl("^/", local_path)) {
+    if (!is_absolute_local_path(local_path)) {
       local_path <- file.path(project_dir, local_path)
     }
-    database_config$local$path <- normalizePath(local_path, mustWork = FALSE)
+    database_config$local$path <- normalizePath(
+      local_path,
+      winslash = "/",
+      mustWork = FALSE
+    )
   }
 
   database_config

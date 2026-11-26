@@ -1,6 +1,13 @@
 testthat::test_that("find_listening_pids parses lsof output", {
-  system_runner <- function(...) c("1234", "5678", "")
-
+  system_runner <- function(command, ...) {
+    if (identical(command, "netstat")) {
+      return(c(
+        "  TCP    127.0.0.1:8000        0.0.0.0:0              LISTENING       1234",
+        "  TCP    127.0.0.1:8000        0.0.0.0:0              LISTENING       5678"
+      ))
+    }
+    c("1234", "5678", "")
+  }
   testthat::expect_equal(
     find_listening_pids(8000, system_runner),
     c(1234L, 5678L)

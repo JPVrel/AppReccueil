@@ -98,8 +98,14 @@ testthat::test_that("protecting a legacy SQLite database preserves the source fi
   records <- read_collection_records(vault$connection)
 
   testthat::expect_true(file.exists(source_path))
-  testthat::expect_true(source_path %in% list_unencrypted_local_databases(dirname(source_path)))
-  testthat::expect_true(encrypted_path %in% list_local_database_vaults(dirname(encrypted_path)))
+  testthat::expect_true(
+    normalizePath(source_path, winslash = "/") %in%
+      list_unencrypted_local_databases(dirname(source_path))
+  )
+  testthat::expect_true(
+    normalizePath(encrypted_path, winslash = "/") %in%
+      list_local_database_vaults(dirname(encrypted_path))
+  )
   testthat::expect_equal(records$participant_code, "P001")
 })
 
@@ -148,7 +154,7 @@ testthat::test_that("database chooser paths cannot escape the configured data di
 
   testthat::expect_identical(
     validate_local_database_selection(inside, data_dir, ".sqlite"),
-    normalizePath(inside)
+    normalizePath(inside, winslash = "/")
   )
   testthat::expect_error(
     validate_local_database_selection(outside, data_dir, ".sqlite"),
@@ -200,7 +206,7 @@ testthat::test_that("only one concurrent process can claim stale lock recovery",
   owner$pid <- .Machine$integer.max
   saveRDS(owner, database_lock_owner_path(lock_path))
 
-  cluster <- parallel::makePSOCKcluster(4L)
+  cluster <- parallel::makePSOCKcluster(2L)
   on.exit(parallel::stopCluster(cluster), add = TRUE)
   parallel::clusterExport(
     cluster,

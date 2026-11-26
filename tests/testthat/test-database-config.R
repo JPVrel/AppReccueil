@@ -8,7 +8,15 @@ testthat::test_that("read_database_config resolves the local SQLite path", {
 
   testthat::expect_equal(config$mode, "local")
   testthat::expect_true(grepl("recueil.sqlite$", config$local$path))
-  testthat::expect_equal(config$project_dir, project_dir)
+  testthat::expect_equal(config$project_dir, normalizePath(project_dir, winslash = "/"))
+})
+
+testthat::test_that("absolute local paths are recognized on Windows and Unix", {
+  testthat::expect_true(is_absolute_local_path("/tmp/recueil.sqlite"))
+  testthat::expect_true(is_absolute_local_path("C:/data/recueil.sqlite"))
+  testthat::expect_true(is_absolute_local_path("C:\\data\\recueil.sqlite"))
+  testthat::expect_true(is_absolute_local_path("\\\\server\\share\\recueil.sqlite"))
+  testthat::expect_false(is_absolute_local_path("data/recueil.sqlite"))
 })
 
 testthat::test_that("read_database_config preserves remote driver settings", {

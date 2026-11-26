@@ -41,6 +41,7 @@ jobs:
             build-essential \
             libcurl4-openssl-dev \
             libssl-dev \
+            lsof \
             libuv1-dev \
             libxml2-dev \
             zlib1g-dev

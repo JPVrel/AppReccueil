@@ -18,14 +18,16 @@ list_local_database_vaults <- function(data_dir) {
   if (!dir.exists(data_dir)) {
     return(character())
   }
-  list.files(data_dir, pattern = "[.]sqlite[.]enc$", full.names = TRUE)
+  paths <- list.files(data_dir, pattern = "[.]sqlite[.]enc$", full.names = TRUE)
+  normalizePath(paths, winslash = "/", mustWork = TRUE)
 }
 
 list_unencrypted_local_databases <- function(data_dir) {
   if (!dir.exists(data_dir)) {
     return(character())
   }
-  list.files(data_dir, pattern = "[.]sqlite$", full.names = TRUE)
+  paths <- list.files(data_dir, pattern = "[.]sqlite$", full.names = TRUE)
+  normalizePath(paths, winslash = "/", mustWork = TRUE)
 }
 
 database_vault_path <- function(data_dir, database_name) {
@@ -46,9 +48,14 @@ validate_local_database_selection <- function(path, data_dir, suffix) {
     length(suffix) != 1L || is.na(suffix) || !startsWith(suffix, ".")) {
     stop("La sélection de base locale est invalide.")
   }
-  root <- normalizePath(data_dir, mustWork = TRUE)
-  selected <- normalizePath(path, mustWork = TRUE)
-  if (!identical(dirname(selected), root) ||
+  root <- normalizePath(data_dir, winslash = "/", mustWork = TRUE)
+  selected <- normalizePath(path, winslash = "/", mustWork = TRUE)
+  selected_parent <- dirname(selected)
+  same_directory <- identical(selected_parent, root)
+  if (.Platform$OS.type == "windows") {
+    same_directory <- identical(tolower(selected_parent), tolower(root))
+  }
+  if (!same_directory ||
     !endsWith(tolower(selected), tolower(suffix)) || isTRUE(file.info(selected)$isdir)) {
     stop("La base sélectionnée doit être un fichier ", suffix, " situé directement dans le dossier local.")
   }
