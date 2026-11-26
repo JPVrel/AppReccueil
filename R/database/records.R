@@ -61,12 +61,48 @@ collection_record_exists <- function(connection, record_id) {
   ) |> nrow() > 0L
 }
 
-new_collection_record_id <- function(connection) {
+validate_collection_record_id_prefix <- function(prefix) {
+  if (length(prefix) != 1L || is.na(prefix) ||
+    !grepl("^[A-Za-z0-9][A-Za-z0-9_-]*$", prefix) || nchar(prefix, type = "chars") > 30L) {
+    stop("Le préfixe doit commencer par une lettre ou un chiffre, sans espace, et contenir seulement lettres, chiffres, tirets ou underscores (30 caractères maximum).")
+  }
+  invisible(prefix)
+}
+
+new_collection_record_id <- function(connection, prefix = "row_", start_number = 1L) {
+  validate_collection_record_id_prefix(prefix)
+  if (length(start_number) != 1L || is.na(start_number) || !is.finite(start_number) ||
+    start_number < 1 || start_number != floor(start_number)) {
+    stop("Le numéro de départ doit être un entier positif.")
+  }
+
+  number <- as.double(start_number)
+  record_states <- DBI::dbGetQuery(
+    connection,
+    paste("SELECT id, is_deleted FROM", record_table_name())
+  )
+  active_ids <- record_states$id[!as.logical(record_states$is_deleted)]
+  matching_ids <- active_ids[startsWith(active_ids, prefix)]
+  suffixes <- substring(matching_ids, nchar(prefix, type = "chars") + 1L)
+  suffixes <- suffixes[grepl("^[0-9]+$", suffixes)]
+  if (length(suffixes) > 0L) {
+    active_numbers <- suppressWarnings(as.double(suffixes))
+    if (any(!is.finite(active_numbers)) || any(active_numbers > .Machine$integer.max)) {
+      stop("Le numéro d'ID actif le plus élevé dépasse la plage prise en charge.")
+    }
+    number <- max(number, max(active_numbers) + 1)
+  }
+
   repeat {
-    candidate <- sub("^col_", "row_", generate_column_id())
+    if (number > .Machine$integer.max) {
+      stop("Aucun numéro d'ID disponible dans la plage prise en charge.")
+    }
+    candidate <- paste0(prefix, format(number, scientific = FALSE, trim = TRUE))
+    validate_collection_record_id(candidate)
     if (!collection_record_exists(connection, candidate)) {
       return(candidate)
     }
+    number <- number + 1
   }
 }
 

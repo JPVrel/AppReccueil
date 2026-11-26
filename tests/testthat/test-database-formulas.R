@@ -116,6 +116,91 @@ testthat::test_that("conditional formulas compare columns and return selected va
   testthat::expect_true(is.na(calculated$classification[[3]]))
 })
 
+testthat::test_that("conditional formulas compare a column with a fixed numeric value", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  age_id <- add_typed_column(connection, "age", "integer")
+  add_derived_column(connection, "adult_status", list(
+    mode = "if_else",
+    left_id = age_id,
+    operator = "greater_or_equal",
+    right_mode = "constant",
+    right_value = "18",
+    true_value = "adult",
+    false_value = "minor",
+    result_type = "text"
+  ))
+
+  calculated <- calculate_derived_columns(
+    data.frame(age = c(17L, 18L, 25L, NA_integer_)),
+    list_column_definitions(connection)
+  )
+
+  testthat::expect_equal(calculated$adult_status[1:3], c("minor", "adult", "adult"))
+  testthat::expect_true(is.na(calculated$adult_status[[4]]))
+})
+
+testthat::test_that("fixed comparison values are converted to the source column type", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  event_date_id <- add_typed_column(connection, "event_date", "date")
+  add_derived_column(connection, "before_cutoff", list(
+    mode = "if_else",
+    left_id = event_date_id,
+    operator = "less_than",
+    right_mode = "constant",
+    right_value = "2024-01-01",
+    true_value = "before",
+    false_value = "after",
+    result_type = "text"
+  ))
+
+  calculated <- calculate_derived_columns(
+    data.frame(event_date = as.Date(c("2023-12-31", "2024-01-01", NA))),
+    list_column_definitions(connection)
+  )
+
+  testthat::expect_equal(calculated$before_cutoff[1:2], c("before", "after"))
+  testthat::expect_true(is.na(calculated$before_cutoff[[3]]))
+  testthat::expect_error(add_derived_column(connection, "bad_cutoff", list(
+    mode = "if_else",
+    left_id = event_date_id,
+    operator = "less_than",
+    right_mode = "constant",
+    right_value = "31-12-2024",
+    true_value = "before",
+    false_value = "after",
+    result_type = "text"
+  )), "YYYY-MM-DD")
+})
+
+testthat::test_that("text columns can be conditionally compared with a fixed string", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  status_id <- add_typed_column(connection, "status", "text")
+  add_derived_column(connection, "is_approved", list(
+    mode = "if_else",
+    left_id = status_id,
+    operator = "equal",
+    right_mode = "constant",
+    right_value = "approved",
+    true_value = "yes",
+    false_value = "no",
+    result_type = "text"
+  ))
+
+  calculated <- calculate_derived_columns(
+    data.frame(status = c("approved", "pending", NA_character_)),
+    list_column_definitions(connection)
+  )
+
+  testthat::expect_equal(calculated$is_approved[1:2], c("yes", "no"))
+  testthat::expect_true(is.na(calculated$is_approved[[3]]))
+})
+
 testthat::test_that("all comparison operators preserve missing comparisons", {
   connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
   on.exit(DBI::dbDisconnect(connection), add = TRUE)

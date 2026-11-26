@@ -1,15 +1,18 @@
 testthat::test_that("the app exposes a central spreadsheet tab and management tab", {
   ui_html <- htmltools::renderTags(build_app_ui())$html
+  css <- paste(readLines(file.path(project_dir, "shiny", "www", "app.css"), warn = FALSE), collapse = "\n")
 
   testthat::expect_match(ui_html, "Base de données")
-  testthat::expect_match(ui_html, "Questionnaire")
+  testthat::expect_match(ui_html, "Gestion des entrées")
   testthat::expect_match(ui_html, "Éléments supprimés")
   testthat::expect_match(ui_html, "database_spreadsheet")
   testthat::expect_match(ui_html, "download_database_csv")
   testthat::expect_match(ui_html, "download_database_xlsx")
   testthat::expect_match(ui_html, "download_database_rds")
-  testthat::expect_match(ui_html, "Gestion des variables")
+  testthat::expect_match(ui_html, "Gestion des colonnes")
+  testthat::expect_match(ui_html, "recueil-dblclick-hint")
   testthat::expect_match(ui_html, "application_tabs")
+  testthat::expect_match(css, "\\.recueil-card \\.recueil-export-actions \\.btn \\{[[:space:]]*margin: 0;")
 })
 
 testthat::test_that("spreadsheet UI documents double-click header editing hook", {

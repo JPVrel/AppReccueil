@@ -363,6 +363,7 @@ database_home_server <- function(
         "Copie chiffrée ouverte. La source en clair est conservée à",
         source_path
       ))
+        show_operation_toast("Copie chiffrée créée et ouverte.")
     }, error = function(condition) {
       workflow_status(conditionMessage(condition))
     })
@@ -407,6 +408,7 @@ database_home_server <- function(
       shiny::updateTextInput(session, "new_database_password_confirm", value = "")
       shiny::updateTextInput(session, "import_file_password", value = "")
       workflow_status(paste("Base créée et ouverte :", basename(created_path)))
+        show_operation_toast(paste("Base créée :", basename(created_path)))
     }, error = function(condition) {
       can_remove_created_database <- database_created && is.null(vault)
       if (!is.null(vault)) {
@@ -436,6 +438,7 @@ database_home_server <- function(
       refresh_trigger(refresh_trigger() + 1L)
       status <- if (isTRUE(vault$encrypted)) "Base rechiffrée et fermée." else "Base fermée."
       workflow_status(status)
+        show_operation_toast(status)
     }, error = function(condition) {
       workflow_status(paste("Échec de fermeture :", conditionMessage(condition)))
     })
@@ -457,6 +460,7 @@ database_home_server <- function(
           "Import intégré :", result$inserted, "nouvelle(s) observation(s) et",
           result$filled, "valeur(s) complétée(s)."
         ))
+          show_operation_toast("Import intégré à la base.")
         merge_plan(NULL)
       } else {
         shiny::showModal(shiny::modalDialog(
@@ -498,6 +502,7 @@ database_home_server <- function(
         result$filled, "valeur(s) complétée(s) et", result$conflicts,
         "conflit(s) arbitré(s)."
       ))
+        show_operation_toast("Import et arbitrage des conflits terminés.")
     }, error = function(condition) {
       workflow_status(conditionMessage(condition))
     })

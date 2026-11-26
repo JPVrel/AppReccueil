@@ -28,6 +28,79 @@ body {
   padding: 24px 24px 48px;
 }
 
+.nav.nav-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.recueil-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.recueil-span-12 { grid-column: span 12; }
+.recueil-span-8 { grid-column: span 8; }
+.recueil-span-6 { grid-column: span 6; }
+.recueil-span-4 { grid-column: span 4; }
+
+.recueil-column-layout {
+  display: grid;
+  grid-template-areas: "editor panel";
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.recueil-column-editor {
+  grid-area: editor;
+  min-width: 0;
+}
+
+.recueil-column-editor .recueil-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.recueil-column-editor .recueil-grid > .recueil-card {
+  grid-column: 1;
+}
+
+.recueil-active-column-panel {
+  grid-area: panel;
+  position: sticky;
+  top: 86px;
+  max-height: calc(100vh - 104px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.recueil-dblclick-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border: 1px solid #b8c9f0;
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  background: #eef3ff;
+  color: var(--text);
+}
+
+.recueil-dblclick-icon {
+  color: var(--primary);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.shiny-notification {
+  z-index: 1100;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
 h1, h2, h3, h4 {
   color: var(--text);
   letter-spacing: -0.02em;
@@ -58,12 +131,12 @@ h1, h2, h3, h4 {
 
 .nav.nav-tabs {
   display: flex;
-  gap: 4px;
-  margin-bottom: 20px;
+  gap: 2px;
+  margin-bottom: 14px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 9px;
   background: var(--surface);
-  padding: 5px;
+  padding: 3px;
 }
 
 .nav.nav-tabs > li {
@@ -73,11 +146,13 @@ h1, h2, h3, h4 {
 
 .nav.nav-tabs > li > a {
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   text-align: center;
   color: var(--muted);
+  font-size: 13px;
   font-weight: 600;
-  padding: 10px 12px;
+  line-height: 1.25;
+  padding: 7px 8px;
 }
 
 .nav.nav-tabs > li.active > a,
@@ -418,6 +493,10 @@ h1, h2, h3, h4 {
   font-size: 13px;
 }
 
+.recueil-card .recueil-export-actions .btn {
+  margin: 0;
+}
+
 .recueil-help {
   margin: 8px 0 0;
   color: var(--muted);
@@ -504,14 +583,26 @@ h1, h2, h3, h4 {
 @media (max-width: 900px) {
   .container-fluid { padding: 12px; }
   .app-header { margin: -12px -12px 12px; }
-  .nav.nav-tabs { overflow-x: auto; }
-  .nav.nav-tabs > li { min-width: 150px; }
+  .nav.nav-tabs { overflow-x: auto; margin-bottom: 12px; }
+  .nav.nav-tabs > li { min-width: 112px; }
+  .nav.nav-tabs > li > a { padding: 7px 6px; font-size: 12px; }
   .recueil-span-8,
   .recueil-span-6,
   .recueil-span-4 { grid-column: span 12; }
+  .recueil-column-layout { grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 620px) {
+  .recueil-column-layout {
+    grid-template-areas: "panel" "editor";
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .recueil-active-column-panel {
+    position: sticky;
+    top: 54px;
+    z-index: 20;
+    max-height: 30vh;
+  }
   .recueil-field-grid,
   .recueil-export-actions {
     grid-template-columns: 1fr;

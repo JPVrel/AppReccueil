@@ -265,7 +265,13 @@ database_spreadsheet_ui <- function() {
     "Base de données",
     value = "spreadsheet",
     shiny::h2(class = "recueil-page-title", "Observations"),
-    shiny::p(class = "recueil-page-subtitle", "Double-cliquez sur une ligne pour modifier l'observation ou sur un en-tête pour gérer sa variable."),
+    shiny::div(
+      class = "recueil-dblclick-hint",
+      shiny::span(class = "recueil-dblclick-icon", "↔"),
+      shiny::span(
+        shiny::strong("Double-cliquez sur une ligne"), " pour la modifier ou sur un en-tête pour gérer la colonne."
+      )
+    ),
     shiny::div(
       class = "recueil-grid",
       shiny::div(

@@ -2,19 +2,29 @@ testthat::test_that("build_shiny_app returns a Shiny application", {
   testthat::expect_s3_class(build_shiny_app(), "shiny.appobj")
 })
 
-testthat::test_that("the UI renders the database column-management tab", {
-  ui_html <- htmltools::renderTags(build_app_ui())$html
+testthat::test_that("the UI renders the user-facing tabs and column-management controls", {
+  ui_tags <- htmltools::renderTags(build_app_ui())
+  ui_html <- ui_tags$html
 
+  testthat::expect_match(ui_tags$head, 'href="app.css\\?v=dev"')
+  tab_positions <- vapply(
+    c("Accueil", "Base de données", "Gestion des colonnes", "Gestion des entrées", "Éléments supprimés"),
+    function(label) regexpr(label, ui_html, fixed = TRUE)[[1]],
+    integer(1)
+  )
+  testthat::expect_true(all(diff(tab_positions) > 0L))
   testthat::expect_match(ui_html, "Base de données")
   testthat::expect_match(ui_html, "Importer des données")
   testthat::expect_match(ui_html, "database_overview")
   testthat::expect_match(ui_html, "import_file")
-  testthat::expect_match(ui_html, "Gestion des variables")
+  testthat::expect_match(ui_html, "Gestion des colonnes")
+  testthat::expect_match(ui_html, "Gestion des entrées")
   testthat::expect_match(ui_html, "database_spreadsheet")
   testthat::expect_match(ui_html, "add_column")
   testthat::expect_match(ui_html, "rename_column")
   testthat::expect_match(ui_html, "active_variables_table")
-  testthat::expect_match(ui_html, "archived_variables_table")
+  testthat::expect_false(grepl("archived_variables_table", ui_html, fixed = TRUE))
+  testthat::expect_false(grepl("column_to_restore", ui_html, fixed = TRUE))
   testthat::expect_match(ui_html, "category_entries")
 
   shiny::testServer(build_app_server(), {
@@ -464,6 +474,117 @@ testthat::test_that("the questionnaire creates, edits from row double-click, and
     session$setInputs(confirm_mask_record = 1)
     testthat::expect_equal(list_deleted_collection_records(connection)$id, "row-edited")
     testthat::expect_equal(nrow(read_collection_records(connection)), 0L)
+  })
+})
+
+testthat::test_that("questionnaire values and prefix IDs survive schema refreshes", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "participant_code", "text")
+  add_typed_column(connection, "age", "integer")
+  refresh_trigger <- shiny::reactiveVal(0L)
+
+  shiny::testServer(function(input, output, session) {
+    record_entry_server(input, output, session, connection, refresh_trigger)
+  }, {
+    session$setInputs(record_id_prefix = "PAT-", record_id_number = 7)
+    testthat::expect_identical(input$record_id_prefix, "PAT-")
+    testthat::expect_equal(input$record_id_number, 7)
+    session$setInputs(
+      record_field__participant_code = "P007",
+      record_field__age = "42"
+    )
+
+    add_typed_column(connection, "visit_number", "integer")
+    refresh_trigger(1L)
+    session$flushReact()
+
+    form_html <- htmltools::renderTags(output$record_questionnaire_fields)$html
+    testthat::expect_identical(input$record_field__participant_code, "P007")
+    testthat::expect_identical(input$record_field__age, "42")
+    testthat::expect_match(form_html, "record_field__visit_number")
+    testthat::expect_match(form_html, "value=\"P007\"")
+    testthat::expect_match(form_html, "value=\"42\"")
+  })
+})
+
+testthat::test_that("saving a new entry advances an auto ID taken before validation", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "participant_code", "text")
+  insert_collection_record(connection, list(participant_code = "P006"), "PAT-7")
+  refresh_trigger <- shiny::reactiveVal(0L)
+
+  shiny::testServer(function(input, output, session) {
+    record_entry_server(input, output, session, connection, refresh_trigger)
+  }, {
+    session$setInputs(
+      record_id_prefix = "PAT-",
+      record_id_number = 7,
+      record_id_value = "PAT-7",
+      record_field__participant_code = "P007",
+      save_record = 1
+    )
+
+    records <- read_collection_records(connection)
+    testthat::expect_true("PAT-7" %in% records$id)
+    testthat::expect_true("PAT-8" %in% records$id)
+    testthat::expect_equal(records$participant_code[records$id == "PAT-8"], "P007")
+  })
+})
+
+testthat::test_that("the entry form advances from the highest active ID", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "participant_code", "text")
+  insert_collection_record(connection, list(participant_code = "P020"), "PAT-20")
+  DBI::dbExecute(
+    connection,
+    "INSERT INTO collection_records (id, created_at, payload, is_deleted) VALUES ('PAT-30', CURRENT_TIMESTAMP, '{}', 1)"
+  )
+  refresh_trigger <- shiny::reactiveVal(0L)
+
+  shiny::testServer(function(input, output, session) {
+    record_entry_server(input, output, session, connection, refresh_trigger)
+  }, {
+    session$setInputs(
+      record_id_prefix = "PAT-",
+      record_id_number = 1,
+      record_id_value = "PAT-21",
+      record_field__participant_code = "P021",
+      save_record = 1
+    )
+
+    records <- read_collection_records(connection)
+    testthat::expect_true("PAT-21" %in% records$id)
+    testthat::expect_false("PAT-30" %in% records$id)
+    testthat::expect_equal(records$participant_code[records$id == "PAT-21"], "P021")
+  })
+})
+
+testthat::test_that("saving a new entry works when the ID input is still empty", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "participant_code", "text")
+  refresh_trigger <- shiny::reactiveVal(0L)
+
+  shiny::testServer(function(input, output, session) {
+    record_entry_server(input, output, session, connection, refresh_trigger)
+  }, {
+    session$setInputs(
+      record_id_prefix = "PAT-",
+      record_id_number = 7,
+      record_field__participant_code = "P007",
+      save_record = 1
+    )
+
+    records <- read_collection_records(connection)
+    testthat::expect_identical(records$id, "PAT-7")
+    testthat::expect_identical(records$participant_code, "P007")
   })
 })
 

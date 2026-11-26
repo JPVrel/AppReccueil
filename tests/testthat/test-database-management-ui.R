@@ -6,14 +6,27 @@ testthat::test_that("database management display helpers handle empty and popula
 
 testthat::test_that("the add-variable form explains naming rules and places active variables beside it", {
   ui_html <- htmltools::renderTags(database_management_ui())$html
-  add_position <- regexpr("Ajouter une variable", ui_html, fixed = TRUE)[[1]]
-  active_position <- regexpr("Variables actives", ui_html, fixed = TRUE)[[1]]
+  css <- paste(readLines(file.path(project_dir, "shiny", "www", "app.css"), warn = FALSE), collapse = "\n")
+  add_position <- regexpr("Ajouter une colonne", ui_html, fixed = TRUE)[[1]]
   rename_position <- regexpr("Renommer ou masquer", ui_html, fixed = TRUE)[[1]]
 
-  testthat::expect_match(ui_html, "Nom de la variable \\(sans espaces\\)")
-  testthat::expect_match(ui_html, "lettres sans accents, chiffres et underscores")
-  testthat::expect_true(add_position < active_position)
-  testthat::expect_true(active_position < rename_position)
+  testthat::expect_match(ui_html, "Nom de la colonne")
+  testthat::expect_match(ui_html, "Sans espaces ni accents")
+  testthat::expect_match(ui_html, "lettres, chiffres et _")
+  testthat::expect_match(ui_html, "recueil-column-layout")
+  testthat::expect_match(ui_html, "recueil-active-column-panel")
+  testthat::expect_match(ui_html, "formula_right_mode")
+  testthat::expect_match(ui_html, "formula_constant_value")
+  testthat::expect_match(ui_html, "comparez une colonne à une autre ou à une valeur fixe")
+  testthat::expect_match(ui_html, "Jours \\(1re−2e\\)")
+  testthat::expect_match(ui_html, "Mois complets \\(1re−2e\\)")
+  testthat::expect_match(ui_html, "Années complètes \\(1re−2e\\)")
+  testthat::expect_true(add_position < rename_position)
+  testthat::expect_match(css, 'grid-template-areas: "editor panel"')
+  testthat::expect_match(css, "max-width: 900px")
+  testthat::expect_match(css, "minmax\\(0, 1\\.6fr\\) minmax\\(260px, 1fr\\)")
+  testthat::expect_match(css, "max-width: 620px")
+  testthat::expect_match(css, 'grid-template-areas: "panel" "editor"')
 })
 
 testthat::test_that("variable management errors are routed to popups, not the bottom status", {
@@ -112,6 +125,21 @@ testthat::test_that("formula editor values are reconstructed from a stored defin
   testthat::expect_equal(editor_values$operator, "greater_than")
   testthat::expect_equal(editor_values$true_value, "high")
   testthat::expect_equal(editor_values$false_value, "low")
+
+  constant_formula_id <- add_derived_column(connection, "adult_status", list(
+    mode = "if_else",
+    left_id = left_id,
+    operator = "greater_or_equal",
+    right_mode = "constant",
+    right_value = "18",
+    true_value = "adult",
+    false_value = "minor",
+    result_type = "text"
+  ))
+  constant_editor_values <- formula_editor_values(connection, constant_formula_id)
+  testthat::expect_equal(constant_editor_values$right_mode, "constant")
+  testthat::expect_equal(constant_editor_values$right_value, "18")
+  testthat::expect_null(constant_editor_values$right_id)
 })
 
 testthat::test_that("the management UI handles types, dictionaries, formulas, and archives", {
@@ -223,6 +251,10 @@ testthat::test_that("the management UI handles types, dictionaries, formulas, an
       add_derived_column = 1
     )
     testthat::expect_match(output$column_status, "Variable dérivée créée : score_change")
+    testthat::expect_identical(input$derived_column_name, "score_change")
+    testthat::expect_identical(input$formula_mode, "binary")
+    testthat::expect_identical(input$formula_left_id, source_ids$column_id[source_ids$name == "end_score"])
+    testthat::expect_identical(input$formula_right_id, source_ids$column_id[source_ids$name == "start_score"])
     formula_definitions <- list_column_definitions(external_connection)
     calculated <- calculate_derived_columns(
       data.frame(start_score = c(5L, NA_integer_), end_score = c(8L, 10L)),
@@ -249,6 +281,41 @@ testthat::test_that("the management UI handles types, dictionaries, formulas, an
       list_column_definitions(external_connection)
     )
     testthat::expect_equal(updated_calculation$score_change, 13)
+
+    session$setInputs(
+      derived_column_name = "score_level",
+      formula_mode = "if_else",
+      formula_left_id = source_ids$column_id[source_ids$name == "end_score"],
+      formula_operator = "greater_or_equal",
+      formula_right_mode = "constant",
+      formula_constant_value = "8",
+      formula_true_value = "high",
+      formula_false_value = "low",
+      formula_result_type = "text",
+      add_derived_column = 2
+    )
+    testthat::expect_match(output$column_status, "Variable dérivée créée : score_level")
+    score_level_id <- DBI::dbGetQuery(
+      external_connection,
+      "SELECT column_id FROM column_definitions WHERE name = 'score_level'"
+    )$column_id[[1]]
+    score_level_formula <- read_derived_formula(external_connection, score_level_id)
+    testthat::expect_identical(score_level_formula$right_mode, "constant")
+    testthat::expect_equal(score_level_formula$right_value, "8")
+    score_level_values <- calculate_derived_columns(
+      data.frame(start_score = c(5L, 5L), end_score = c(8L, 7L)),
+      list_column_definitions(external_connection)
+    )
+    testthat::expect_equal(score_level_values$score_level, c("high", "low"))
+    testthat::expect_match(
+      column_table_data(list_column_definitions(external_connection))$Formule[
+        list_column_definitions(external_connection)$name == "score_level"
+      ],
+      "SI end_score ≥ 8 ALORS high SINON low"
+    )
+    loaded_values <- formula_editor_values(external_connection, score_level_id)
+    testthat::expect_identical(loaded_values$right_mode, "constant")
+    testthat::expect_equal(loaded_values$right_value, "8")
 
     session$setInputs(column_to_hide = "cohort", hide_column = 1)
     session$setInputs(confirm_hide_column = 1)

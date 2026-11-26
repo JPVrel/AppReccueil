@@ -1,10 +1,23 @@
 # Construit uniquement l'interface visuelle. Cette séparation rend possible
 # une évolution du formulaire sans modifier le lanceur local.
-build_app_ui <- function() {
+show_operation_toast <- function(message) {
+  shiny::showNotification(message, type = "message", duration = 4, closeButton = TRUE)
+}
+
+show_error_popup <- function(message) {
+  shiny::showModal(shiny::modalDialog(
+    title = "Erreur",
+    shiny::p(message),
+    easyClose = TRUE,
+    footer = shiny::modalButton("Fermer")
+  ))
+}
+
+build_app_ui <- function(css_version = "dev") {
   shiny::fluidPage(
     shiny::tags$head(
       shiny::tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
-      shiny::tags$link(rel = "stylesheet", href = "app.css")
+      shiny::tags$link(rel = "stylesheet", href = paste0("app.css?v=", css_version))
     ),
     shiny::div(
       class = "app-header",
@@ -16,9 +29,9 @@ build_app_ui <- function() {
     shiny::tabsetPanel(
       id = "application_tabs",
       database_home_ui(),
-      record_entry_ui(),
       database_spreadsheet_ui(),
       database_management_ui(),
+      record_entry_ui(),
       deleted_items_ui()
     )
   )
@@ -114,7 +127,6 @@ build_app_server <- function(database_config = NULL, export_dir = NULL) {
         "deleted_records_table",
         "deleted_items_status",
         "active_variables_table",
-        "archived_variables_table",
         "category_entries",
         "column_status",
         "spreadsheet_status",
@@ -130,5 +142,8 @@ build_app_server <- function(database_config = NULL, export_dir = NULL) {
 
 # Assemble l'interface et le serveur dans l'objet attendu par Shiny.
 build_shiny_app <- function(database_config = NULL) {
-  shiny::shinyApp(build_app_ui(), build_app_server(database_config))
+  project_dir <- Sys.getenv("RECUEIL_PROJECT_DIR", unset = normalizePath(getwd()))
+  css_file <- file.path(project_dir, "shiny", "www", "app.css")
+  css_version <- if (file.exists(css_file)) unname(tools::md5sum(css_file)) else "dev"
+  shiny::shinyApp(build_app_ui(css_version), build_app_server(database_config))
 }

@@ -114,6 +114,31 @@ testthat::test_that("read_collection_records returns active column names for an 
   testthat::expect_true(all(c("id", "created_at", "payload", "visit_date") %in% names(records)))
 })
 
+testthat::test_that("record IDs use the configured prefix and increment past existing entries", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+
+  testthat::expect_identical(new_collection_record_id(connection, "SUBJ-", 12), "SUBJ-12")
+  create_unencrypted_database_record <- function(record_id, is_deleted = 0L) {
+    DBI::dbExecute(
+      connection,
+      "INSERT INTO collection_records (id, created_at, payload, is_deleted) VALUES (?, CURRENT_TIMESTAMP, '{}', ?)",
+      params = list(record_id, as.integer(is_deleted))
+    )
+  }
+  create_unencrypted_database_record("SUBJ-12")
+  create_unencrypted_database_record("SUBJ-13")
+
+  testthat::expect_identical(new_collection_record_id(connection, "SUBJ-", 12), "SUBJ-14")
+  create_unencrypted_database_record("SUBJ-20")
+  create_unencrypted_database_record("SUBJ-30", is_deleted = 1L)
+
+  testthat::expect_identical(new_collection_record_id(connection, "SUBJ-", 12), "SUBJ-21")
+  testthat::expect_error(new_collection_record_id(connection, "bad prefix", 1), "sans espace")
+  testthat::expect_error(new_collection_record_id(connection, "P", 0), "entier positif")
+})
+
 testthat::test_that("questionnaire records can be created, updated, masked, and restored", {
   connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
   on.exit(DBI::dbDisconnect(connection), add = TRUE)

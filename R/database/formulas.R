@@ -17,6 +17,13 @@ formula_source_ids <- function(formula) {
     return(c(formula$left_id, formula$right_id))
   }
   if (identical(formula$mode, "if_else")) {
+    right_mode <- formula$right_mode
+    if (is.null(right_mode) || identical(right_mode, "column")) {
+      return(c(formula$left_id, formula$right_id))
+    }
+    if (identical(right_mode, "constant")) {
+      return(formula$left_id)
+    }
     return(c(formula$left_id, formula$right_id))
   }
 
@@ -60,6 +67,53 @@ validate_comparison_types <- function(left_type, right_type, operator) {
   invisible(TRUE)
 }
 
+convert_formula_comparison_constant <- function(value, data_type) {
+  if (length(value) != 1L || is.na(value)) {
+    stop("La valeur fixe de comparaison est obligatoire.")
+  }
+  value <- as.character(value)
+
+  if (is_numeric_column_type(data_type)) {
+    numeric_value <- suppressWarnings(as.numeric(value))
+    if (is.na(numeric_value) || !is.finite(numeric_value)) {
+      stop("La valeur fixe doit être un nombre fini valide.")
+    }
+    if (identical(data_type, "integer")) {
+      if (numeric_value != floor(numeric_value) || numeric_value < -.Machine$integer.max - 1 ||
+        numeric_value > .Machine$integer.max) {
+        stop("La valeur fixe doit être un nombre entier valide.")
+      }
+      return(as.integer(numeric_value))
+    }
+    return(numeric_value)
+  }
+
+  if (identical(data_type, "date")) {
+    date_value <- validate_date_value(value)
+    if (is.na(date_value)) {
+      stop("La valeur fixe de date doit respecter le format YYYY-MM-DD.")
+    }
+    return(date_value)
+  }
+
+  if (identical(data_type, "boolean")) {
+    boolean_value <- tolower(value)
+    if (!boolean_value %in% c("true", "false")) {
+      stop("La valeur fixe booléenne doit être TRUE ou FALSE.")
+    }
+    return(identical(boolean_value, "true"))
+  }
+
+  if (data_type %in% c("text", "categorical")) {
+    if (identical(data_type, "categorical") && !nzchar(value)) {
+      stop("La valeur fixe catégorielle est obligatoire.")
+    }
+    return(value)
+  }
+
+  stop("Le type de la colonne ne permet pas une valeur fixe de comparaison.")
+}
+
 validate_formula_definition <- function(connection, formula) {
   if (!is.list(formula) || is.null(formula$mode)) {
     stop("La définition de formule est incomplète.")
@@ -69,15 +123,14 @@ validate_formula_definition <- function(connection, formula) {
     stop("Mode de formule non autorisé.")
   }
 
-  source_ids <- formula_source_ids(formula)
-  if (length(source_ids) != 2L || anyNA(source_ids) || any(!nzchar(source_ids))) {
-    stop("La formule doit référencer deux colonnes.")
-  }
-  sources <- lapply(source_ids, function(id) get_column_definition(connection, id))
-  left_type <- sources[[1]]$data_type[[1]]
-  right_type <- sources[[2]]$data_type[[1]]
-
   if (identical(formula$mode, "binary")) {
+    source_ids <- formula_source_ids(formula)
+    if (length(source_ids) != 2L || anyNA(source_ids) || any(!nzchar(source_ids))) {
+      stop("La formule doit référencer deux colonnes.")
+    }
+    sources <- lapply(source_ids, function(id) get_column_definition(connection, id))
+    left_type <- sources[[1]]$data_type[[1]]
+    right_type <- sources[[2]]$data_type[[1]]
     if (length(formula$operator) != 1L || !formula$operator %in% formula_binary_operators()) {
       stop("Opération non autorisée dans une formule.")
     }
@@ -99,6 +152,29 @@ validate_formula_definition <- function(connection, formula) {
     }
 
     return(list(formula = formula, result_type = if (formula$operator %in% formula_comparison_operators()) "boolean" else if (formula$operator %in% c("days_between", "months_between", "years_between")) "integer" else "real"))
+  }
+
+  right_mode <- formula$right_mode
+  if (is.null(right_mode)) right_mode <- "column"
+  if (length(right_mode) != 1L || !right_mode %in% c("column", "constant")) {
+    stop("Mode de comparaison non autorisé.")
+  }
+  formula$right_mode <- right_mode
+  left_id <- formula$left_id
+  if (length(left_id) != 1L || is.na(left_id) || !nzchar(left_id)) {
+    stop("La condition doit référencer une colonne.")
+  }
+  left_definition <- get_column_definition(connection, left_id)
+  left_type <- left_definition$data_type[[1]]
+  if (identical(right_mode, "column")) {
+    right_id <- formula$right_id
+    if (length(right_id) != 1L || is.na(right_id) || !nzchar(right_id)) {
+      stop("La condition doit référencer une deuxième colonne.")
+    }
+    right_type <- get_column_definition(connection, right_id)$data_type[[1]]
+  } else {
+    convert_formula_comparison_constant(formula$right_value, left_type)
+    right_type <- left_type
   }
 
   if (length(formula$operator) != 1L || !formula$operator %in% formula_comparison_operators()) {
@@ -375,8 +451,12 @@ calculate_derived_columns <- function(data, definitions) {
     formula <- yaml::yaml.load(definition$formula[[1]])
     source_ids <- formula_source_ids(formula)
     left <- resolve_column(source_ids[[1]], c(visiting, column_id))
-    right <- resolve_column(source_ids[[2]], c(visiting, column_id))
     validated <- validate_formula_definition_from_types(formula, definitions)
+    right <- if (identical(formula$mode, "if_else") && identical(validated$right_mode, "constant")) {
+      validated$right_value
+    } else {
+      resolve_column(source_ids[[2]], c(visiting, column_id))
+    }
     calculate_formula(formula, left, right, validated$result_type)
   }
 
@@ -392,14 +472,29 @@ calculate_derived_columns <- function(data, definitions) {
 validate_formula_definition_from_types <- function(formula, definitions) {
   ids <- formula_source_ids(formula)
   left_row <- definitions[definitions$column_id == ids[[1]], , drop = FALSE]
-  right_row <- definitions[definitions$column_id == ids[[2]], , drop = FALSE]
-  if (nrow(left_row) != 1L || nrow(right_row) != 1L) {
+  if (nrow(left_row) != 1L) {
     stop("Une colonne source de la formule n'existe pas.")
   }
 
   left_type <- left_row$data_type[[1]]
+  right_mode <- if (identical(formula$mode, "if_else") && is.null(formula$right_mode)) {
+    "column"
+  } else if (identical(formula$mode, "binary")) {
+    "column"
+  } else {
+    formula$right_mode
+  }
+  right_row <- if (identical(right_mode, "column")) {
+    definitions[definitions$column_id == ids[[2]], , drop = FALSE]
+  } else {
+    left_row
+  }
+  if (nrow(right_row) != 1L) {
+    stop("Une colonne source de la formule n'existe pas.")
+  }
   right_type <- right_row$data_type[[1]]
   operator <- formula$operator
+  right_value <- NULL
 
   if (formula$mode == "binary") {
     if (operator %in% c("add", "subtract", "multiply", "divide") &&
@@ -419,9 +514,15 @@ validate_formula_definition_from_types <- function(formula, definitions) {
     }
     result_type <- if (operator %in% formula_comparison_operators()) "boolean" else if (operator %in% c("days_between", "months_between", "years_between")) "integer" else "real"
   } else {
+    if (!right_mode %in% c("column", "constant")) {
+      stop("Mode de comparaison non autorisé.")
+    }
+    if (identical(right_mode, "constant")) {
+      right_value <- convert_formula_comparison_constant(formula$right_value, left_type)
+    }
     validate_comparison_types(left_type, right_type, operator)
     result_type <- formula$result_type
   }
 
-  list(result_type = result_type)
+  list(result_type = result_type, right_mode = right_mode, right_value = right_value)
 }

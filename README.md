@@ -65,13 +65,16 @@ Vous pouvez créer une base SQLite avec ou sans mot de passe. Sans mot de passe,
 L’application sait notamment :
 
 - importer des fichiers CSV, Excel (`.xlsx`) ou RDS ;
-- saisir et modifier des observations dans **Questionnaire** ;
+- saisir, rechercher et modifier des observations dans **Gestion des entrées** ;
 - consulter les données dans **Base de données** ;
-- organiser les variables, catégories et formules ;
+- gérer les colonnes, catégories et formules dans **Gestion des colonnes** ;
+- créer des formules **SI/SINON** qui comparent une colonne à une autre colonne ou à une valeur fixe ;
 - masquer puis restaurer des observations ou variables ;
 - exporter en CSV, Excel ou RDS, avec chiffrement facultatif de l’export.
 
-Les noms de variables ne peuvent pas contenir d’espaces ni d’accents. Ils doivent commencer par une lettre et utiliser uniquement des lettres, des chiffres ou `_` (64 caractères maximum). Exemple : `age_du_patient`.
+Les noms de colonnes ne peuvent pas contenir d’espaces ni d’accents. Ils doivent commencer par une lettre et utiliser uniquement des lettres, des chiffres ou `_` (64 caractères maximum). Exemple : `age_du_patient`.
+
+Les nouveaux ID d’entrée sont générés avec un préfixe et un numéro incrémenté à partir du plus grand ID actif correspondant. Le préfixe doit commencer par une lettre ou un chiffre, peut contenir des tirets ou `_`, sans espace, et ne peut pas dépasser 30 caractères ; les ID complets sont limités à 36 caractères. Les ID d’entrées masquées restent réservés.
 
 Les imports sont limités à 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. RDS est un format sérialisé par R : ne chargez que des fichiers provenant d’une source de confiance. Lors d’une fusion, choisissez une clé unique commune aux deux fichiers ; les conflits sont présentés pour arbitrage.
 
@@ -210,7 +213,7 @@ Le mode PostgreSQL et tout hébergement réseau nécessitent une authentificatio
 | Couche | Responsabilité | Technologie principale |
 | --- | --- | --- |
 | Lanceur local | Démarre/arrête Shiny sur `127.0.0.1` | R, Tcl/Tk ou terminal |
-| Interface | Accueil, questionnaire, tableur, variables et éléments supprimés | Shiny, HTML/CSS |
+| Interface | Accueil, gestion des entrées, tableur, colonnes et éléments supprimés | Shiny, HTML/CSS |
 | Schéma | Catalogue stable des colonnes, types, masquage et formules | SQLite, YAML |
 | Données | CRUD, valeurs dérivées et restauration logique | DBI, RSQLite |
 | Import/export | CSV, XLSX, RDS, fusion par clé et arbitrage | readxl, writexl, openssl |
