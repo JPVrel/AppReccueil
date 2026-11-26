@@ -8,13 +8,13 @@ Application de bureau locale pour créer un recueil de données, importer des fi
 
 Téléchargez le fichier correspondant à votre ordinateur :
 
-- [Windows 64 bits](https://github.com/JPVrel/AppReccueil/releases/latest/download/AppReccueil-windows-R4.6-x86_64.zip)
-- [Linux 64 bits (x86_64)](https://github.com/JPVrel/AppReccueil/releases/latest/download/AppReccueil-linux-R4.6-x86_64.zip)
-- [macOS Apple Silicon (M1/M2/M3/M4)](https://github.com/JPVrel/AppReccueil/releases/latest/download/AppReccueil-macos-R4.6-aarch64.zip)
+- [Windows 64 bits](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.0/AppReccueil-windows-R4.6-x86_64.zip)
+- [Linux 64 bits (x86_64)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.0/AppReccueil-linux-R4.6-x86_64.zip)
+- [macOS Apple Silicon (M1/M2/M3/M4)](https://github.com/JPVrel/AppReccueil/releases/download/v1.0.0/AppReccueil-macos-R4.6-aarch64.zip)
 
 Après le téléchargement, extrayez le ZIP. Il contient l’application et ses packages R. **R 4.6.x doit être installé** sur votre ordinateur ; vous n’avez pas à installer les packages de l’application séparément.
 
-Les archives sont publiées dans [la page des versions](https://github.com/JPVrel/AppReccueil/releases). Si un lien direct ne fonctionne pas, ouvrez cette page et téléchargez l’archive de votre système dans la version la plus récente.
+Les archives sont publiées dans [la page de la version 1.0.0](https://github.com/JPVrel/AppReccueil/releases/tag/v1.0.0). Le dépôt GitHub est privé : le téléchargement demande un compte GitHub auquel le propriétaire du dépôt a accordé l’accès. Sans cet accès, les liens afficheront une erreur 404.
 
 ## Installer et lancer
 
@@ -119,7 +119,7 @@ Pour construire hors CI, faites le build sur chaque système cible : Linux, Wind
 
 Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu, Windows et macOS avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit chaque ZIP, l’extrait dans un dossier temporaire, démarre Shiny et vérifie une réponse HTTP 200 avant de publier l’artefact (conservé 30 jours).
 
-Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. Les URL `releases/latest/download/...` du début du README pointent vers les fichiers de la version la plus récente.
+Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. Les liens utilisateurs pointent actuellement explicitement vers les assets de `v1.0.0`.
 
 ### Développement local
 
