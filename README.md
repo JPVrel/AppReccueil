@@ -133,9 +133,9 @@ Pour construire hors CI, faites le build sur chaque système cible : Linux, Wind
 
 ### CI et publications GitHub
 
-Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu, Windows et macOS avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit chaque ZIP, l’extrait dans un dossier temporaire, démarre Shiny et vérifie une réponse HTTP 200 avant de publier l’artefact (conservé 30 jours).
+Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise R 4.6.2 et construit Linux et Windows en CI, un job à la fois. Pour inclure macOS sur GitHub, activez l'entrée `build_macos`; par défaut, construisez l'archive Apple Silicon sur un Mac avec `Rscript --vanilla scripts/build_release.R`. Pour une release avec compilation Mac locale, lancez le workflow manuellement sur `main` avec `release_tag` (par exemple `v1.0.4`); il crée une release brouillon avec les ZIP Linux et Windows. Ajoutez-y l'archive macOS locale avant de publier. Les tests, builds, smoke tests HTTP 200 et artefacts conservés 30 jours sont vérifiés dans le workflow.
 
-Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. Les liens utilisateurs pointent actuellement explicitement vers les assets de `v1.0.4`.
+Un tag commençant par `v` déclenche la création ou la mise à jour d’une release brouillon. Les liens utilisateurs pointent actuellement explicitement vers les assets de `v1.0.4`.
 
 ### Développement local
 

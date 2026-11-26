@@ -7,6 +7,17 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      build_macos:
+        description: Build macOS on GitHub-hosted runners instead of locally
+        type: boolean
+        required: false
+        default: false
+      release_tag:
+        description: Optional release tag to create as a draft after builds (for example v1.0.4)
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -14,6 +25,7 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.target }} release
+    if: matrix.target != 'macos' || inputs.build_macos == true
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -88,7 +100,7 @@ jobs:
           retention-days: 30
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -101,14 +113,21 @@ jobs:
           merge-multiple: true
           path: release-assets
 
-      - name: Create or update GitHub release
+      - name: Create or update GitHub release draft
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" release-assets/*.zip \
+          if [ -n "$RELEASE_TAG" ]; then
+            release_tag="$RELEASE_TAG"
+          else
+            release_tag="$GITHUB_REF_NAME"
+          fi
+          if gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$release_tag" release-assets/*.zip \
               --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$GITHUB_REF_NAME" release-assets/*.zip \
-              --title "$GITHUB_REF_NAME" --generate-notes --repo "$GITHUB_REPOSITORY"
+            gh release create "$release_tag" release-assets/*.zip \
+              --draft --target "$GITHUB_SHA" --title "$release_tag" \
+              --generate-notes --repo "$GITHUB_REPOSITORY"
           fi
