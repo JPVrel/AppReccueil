@@ -1,181 +1,142 @@
 # Application de recueil de données
 
-Application Shiny locale en cours d'expérimentation pour préparer et gérer un recueil de données de recherche.
+Application de bureau locale pour créer un recueil de données, importer des fichiers, saisir et consulter des observations, puis les exporter. L’interface s’ouvre dans votre navigateur, mais les données restent sur votre ordinateur.
 
-> [!CAUTION]
-> **Prototype réalisé en vibecoding, à utiliser à vos risques et périls.** Le code a été développé avec assistance d'IA et n'a pas fait l'objet d'un audit professionnel indépendant. Il peut contenir des défauts, perdre ou altérer des données, ou présenter des vulnérabilités. Ne l'utilisez pas comme système de production et n'y importez pas de données personnelles, confidentielles, médicales ou réglementées. Testez uniquement sur des copies et conservez des sauvegardes indépendantes.
+> **À lire avant utilisation.** Cette application est expérimentale et n’a pas été auditée professionnellement. Elle peut contenir des défauts et entraîner une perte ou une altération de données. N’y mettez pas de données personnelles, médicales, confidentielles ou réglementées. Ne l’utilisez pas pour un projet de production. Faites d’abord vos essais sur des copies et gardez des sauvegardes séparées.
 
-## Démarrage rapide
+## Télécharger
 
-### Prérequis communs
+Choisissez le fichier correspondant au système de votre ordinateur :
 
-- R 4.4 ou supérieur et un accès à CRAN pendant l'installation.
-- Le profil `runtime` installe les packages utilisés par l'application : `shiny`, `DT`, `DBI`, `RSQLite`, `yaml`, `writexl`, `readxl` et `openssl`.
-- Le profil `development` ajoute `testthat` et `htmltools`, utilisés directement par les tests.
-- Le profil `postgres` ajoute `RPostgres` pour le mode distant optionnel.
+- **Windows** : [ouvrir les téléchargements Windows](https://github.com/JPVrel/AppReccueil/actions/runs/45819100602), puis télécharger l’artefact `AppReccueil-windows` en bas de la page.
+- **Linux** : [ouvrir les téléchargements Linux](https://github.com/JPVrel/AppReccueil/actions/runs/45819100602), puis télécharger l’artefact `AppReccueil-linux` en bas de la page.
+- [Voir la page des versions publiées](https://github.com/JPVrel/AppReccueil/releases).
 
-`renv.lock` contient actuellement les versions résolues avec R 4.6.2. Le script d'installation installe les versions CRAN compatibles avec la version de R présente ; pour reproduire exactement le verrou, utilisez la version de R inscrite dans le lockfile et `renv::restore()`.
+Les ZIP du dernier build réussi sont disponibles dans les artefacts du workflow. Ces téléchargements temporaires expirent après 30 jours. Une version publiée apparaîtra sur la page des versions lorsqu’un tag de release sera créé.
 
-### Windows
+L’archive contient l’application et ses packages R. **R doit quand même être installé** sur votre ordinateur. Utilisez R 4.6.x, la famille de version avec laquelle ces archives sont construites. Il n’est pas nécessaire d’installer les packages de l’application séparément.
 
-Installez R pour Windows depuis CRAN. Rtools n'est généralement pas nécessaire : `install.packages()` utilise les binaires Windows lorsqu'ils sont disponibles. Rtools n'est requis que si un package doit être compilé depuis les sources.
+## Installer et lancer
 
-Dans PowerShell, depuis la racine du dépôt :
+1. Téléchargez le ZIP correspondant à votre système, puis extrayez-le dans un dossier où vous avez le droit d’écrire.
+2. Ouvrez le dossier extrait `AppReccueil`.
+3. Ouvrez un terminal dans ce dossier et lancez la commande correspondante.
+
+**Windows, dans PowerShell :**
 
 ```powershell
-Rscript --vanilla .\scripts\install_dependencies.R
 Rscript --vanilla .\shiny\run_app.R 8000
 ```
 
-Ouvrez ensuite <http://127.0.0.1:8000>. Pour utiliser la fenêtre Tcl/Tk, démarrez RStudio ou Positron avec Tcl/Tk disponible, puis exécutez depuis la racine `source("launcher.R")`.
-
-### Linux
-
-Sur Ubuntu/Debian, installez R et les bibliothèques nécessaires à la compilation des dépendances CRAN :
-
-```sh
-sudo apt update
-sudo apt install r-base r-base-dev libssl-dev libcurl4-openssl-dev libxml2-dev
-```
-
-Le lanceur graphique est facultatif. Pour l'utiliser, installez aussi Tcl/Tk et un outil de détection de processus (`lsof` ou `iproute2`, qui fournit `ss`) :
-
-```sh
-sudo apt install tcl tk lsof
-```
-
-Puis, depuis la racine du dépôt :
-
-```sh
-Rscript --vanilla scripts/install_dependencies.R
-Rscript --vanilla shiny/run_app.R 8000
-```
-
-Ouvrez <http://127.0.0.1:8000>. Pour utiliser la fenêtre Tcl/Tk dans une session graphique, lancez depuis RStudio/Positron `source("launcher.R")`. Sur les autres distributions, installez l'équivalent de `r-base`, `r-base-dev`, `libssl-dev`, `libcurl` et `libxml2` avec le gestionnaire de paquets de la distribution. RSQLite embarque SQLite ; `libsqlite3-dev` n'est pas requis.
-
-### macOS
-
-Installez R 4.4 ou supérieur et OpenSSL 3 avec Homebrew :
-
-```sh
-brew install openssl@3
-```
-
-Depuis RStudio/Positron, à la racine du projet :
-
-```r
-source("scripts/install_dependencies.R")
-source("launcher.R")
-```
-
-Ou démarrez directement le serveur :
+**Linux, dans un terminal :**
 
 ```sh
 Rscript --vanilla shiny/run_app.R 8000
 ```
 
-Dans tous les cas, ouvrez <http://127.0.0.1:8000>. Arrêtez un serveur lancé directement avec `Control-C` dans le terminal. La fenêtre Tcl/Tk lance le serveur comme processus séparé et l'arrête en cliquant sur **Tout quitter**.
+4. Ouvrez <http://127.0.0.1:8000> dans votre navigateur.
+5. Pour arrêter l’application, revenez au terminal et appuyez sur `Ctrl+C`.
 
-## Ce que l'application fait
+Si la commande `Rscript` est introuvable, installez R 4.6.x ou demandez à la personne qui gère votre ordinateur de l’ajouter au chemin système. Au premier lancement, votre système peut demander de confirmer l’ouverture d’un fichier téléchargé.
 
-- Crée ou ouvre une base locale SQLite, avec ou sans mot de passe.
-- Importe CSV, Excel (`.xlsx`) ou RDS ; demande un type pour chaque colonne à la création.
-- Fusionne un fichier dans une base existante à partir d'une clé unique, avec arbitrage des conflits.
-- Affiche les observations dans un tableur avec recherche, filtres, tri et pagination.
-- Gère les variables typées, catégories, formules dérivées et champs masqués.
-- Exporte en CSV, Excel ou RDS ; le chiffrement de chaque export est facultatif.
+## Vos données
 
-La saisie manuelle se fait dans l'onglet **Questionnaire**, avec les champs générés selon la structure de la base.
+Au premier lancement, l’application crée les dossiers `data` et `exports` à côté du programme. Vos bases et fichiers exportés y seront enregistrés. Conservez des copies de sauvegarde, notamment avant une mise à jour ou une opération de fusion.
 
-## Installer les dépendances
+Vous pouvez créer une base SQLite avec ou sans mot de passe. Sans mot de passe, le fichier de base n’est pas chiffré. Avec mot de passe, la base est conservée dans un coffre chiffré ; le mot de passe n’est pas récupérable par l’application.
 
-Le script installe uniquement les packages absents. Sans option, il installe le profil `runtime`. On peut aussi le lancer depuis RStudio/Positron avec `source("scripts/install_dependencies.R")`.
+L’application sait notamment :
+
+- importer des fichiers CSV, Excel (`.xlsx`) ou RDS ;
+- saisir et modifier des observations dans **Questionnaire** ;
+- consulter les données dans **Base de données** ;
+- organiser les variables, catégories et formules ;
+- masquer puis restaurer des observations ou variables ;
+- exporter en CSV, Excel ou RDS, avec chiffrement facultatif de l’export.
+
+Les imports sont limités à 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. RDS est un format sérialisé par R : ne chargez que des fichiers provenant d’une source de confiance. Lors d’une fusion, choisissez une clé unique commune aux deux fichiers ; les conflits sont présentés pour arbitrage.
+
+**Attention aux fichiers non chiffrés :** les bases SQLite créées sans mot de passe et les exports sans mot de passe sont lisibles par toute personne ayant accès à ces fichiers.
+
+## Aide et versions
+
+- [Versions publiées](https://github.com/JPVrel/AppReccueil/releases)
+- [Derniers ZIP Windows et Linux](https://github.com/JPVrel/AppReccueil/actions/runs/45819100602)
+- [Signaler un problème](https://github.com/JPVrel/AppReccueil/issues)
+
+## Informations développeur
+
+Cette section regroupe les détails de développement, de maintenance et de vérification. Les instructions destinées aux personnes qui veulent simplement utiliser l’application se trouvent plus haut.
+
+### Prérequis et dépendances R
+
+Le projet demande R 4.4 ou supérieur pour le développement. `renv.lock` contient actuellement les versions résolues avec R 4.6.2. Les archives distribuées sont construites sous R 4.6.2 ; leur bibliothèque embarquée est séparée par système, architecture et famille de version R.
+
+Le profil `runtime` comprend `shiny`, `DT`, `DBI`, `RSQLite`, `yaml`, `writexl`, `readxl` et `openssl`. Le profil `development` ajoute `testthat` et `htmltools`. Le profil optionnel `postgres` ajoute `RPostgres`.
+
+Installer les dépendances runtime depuis la racine du dépôt :
 
 ```sh
 Rscript --vanilla scripts/install_dependencies.R
 ```
 
-Pour exécuter les tests, installez le profil `development` :
+Installer les outils de test et lancer la suite :
 
 ```sh
 Rscript --vanilla scripts/install_dependencies.R --profile development
 Rscript --vanilla -e 'testthat::test_dir("tests/testthat")'
 ```
 
-Pour le mode PostgreSQL distant, installez `RPostgres` avec le profil dédié, puis configurez les identifiants par variables d'environnement comme décrit plus bas :
+Pour le mode PostgreSQL distant :
 
 ```sh
 Rscript --vanilla scripts/install_dependencies.R --profile postgres
 ```
 
-Sur Linux, `libssl-dev`, `libcurl4-openssl-dev` et `libxml2-dev` sont les prérequis système conseillés pour compiler les dépendances R depuis CRAN. Sur macOS, le script configure OpenSSL depuis Homebrew lorsqu'il trouve `openssl@3`. Sur Windows, les binaires CRAN évitent normalement la compilation locale.
+Sur Ubuntu/Debian, les prérequis système conseillés pour compiler les dépendances CRAN sont `r-base`, `r-base-dev`, `libssl-dev`, `libcurl4-openssl-dev` et `libxml2-dev`. Le lanceur graphique facultatif demande Tcl/Tk et `lsof` ou `ss`. RSQLite embarque SQLite ; `libsqlite3-dev` n’est pas requis. Sur macOS, installez OpenSSL 3 avec `brew install openssl@3` ; le script configure le package R `openssl` s’il trouve Homebrew. Sous Windows, CRAN fournit normalement des binaires ; Rtools n’est utile que lorsqu’une compilation locale est nécessaire.
 
-## Construire une release
+### Construire les archives
 
-Depuis la racine du dépôt, sur le système cible, créez une archive avec l'application et les packages R restaurés depuis `renv.lock` :
+Construire une archive pour le système courant, depuis la racine du dépôt :
 
 ```sh
 Rscript --vanilla scripts/build_release.R
 ```
 
-Le ZIP apparaît dans `dist/` avec un nom qui indique le système, l'architecture et la version majeure/mineure de R. Pour choisir un autre emplacement, passez `--output chemin/vers/release.zip`. Le script n'écrase jamais un ZIP existant. Il copie le code, crée une configuration locale standard et des dossiers `data/` et `exports/` vides, puis installe la bibliothèque verrouillée dans `renv/library/`. Les bases, exports et éventuels secrets de la configuration de la machine de build ne sont pas inclus.
+Le ZIP est écrit dans `dist/`. Pour spécifier un autre chemin, utilisez `--output chemin/vers/release.zip`. Le script refuse d’écraser une archive existante. Il copie le code, crée une configuration SQLite locale standard ainsi que des dossiers `data/` et `exports/` vides, puis embarque les packages runtime. Il n’inclut pas les bases, exports ni secrets du poste de build.
 
-La construction nécessite un accès à CRAN et installe `renv` si nécessaire ; l'utilisateur final n'a pas besoin de `renv` ni d'un accès à CRAN. Construisez séparément sous Windows, macOS et Linux avec R 4.6.x pour obtenir des bibliothèques compilées pour chaque plateforme. Après extraction, depuis le dossier `AppReccueil`, démarrez l'application avec :
+Sans bibliothèque source fournie, le script restaure les packages runtime depuis `renv.lock` et installe `renv` si besoin. La CI définit `APPRECUEIL_BUILD_LIBRARY` pour réutiliser sa bibliothèque de packages déjà installée : les tests et la release partagent alors les mêmes compilations, et seule la fermeture des dépendances runtime est copiée dans le ZIP.
+
+Pour construire hors CI, faites le build sur chaque système cible : Linux, Windows et macOS. Les packages compilés ne sont pas interchangeables entre systèmes ou architectures. La release contient les packages R, mais certaines bibliothèques natives peuvent encore être fournies par le système. Testez chaque archive extraite sur une installation propre de la plateforme visée.
+
+### CI et publications GitHub
+
+Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu et Windows avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit les ZIP puis les publie comme artefacts conservés 30 jours.
+
+Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les ZIP Linux et Windows. La page des releases est [ici](https://github.com/JPVrel/AppReccueil/releases). Une release taguée est le lien de téléchargement durable ; les artefacts d’un run Actions sont temporaires.
+
+### Développement local
+
+Sur macOS, installez OpenSSL 3 avec Homebrew :
 
 ```sh
-Rscript --vanilla shiny/run_app.R 8000
+brew install openssl@3
 ```
 
-Ouvrez ensuite <http://127.0.0.1:8000>. Le lanceur Tcl/Tk reste optionnel. Cette release embarque les packages R ; certaines bibliothèques natives peuvent encore être fournies par le système d'exploitation, donc testez chaque archive sur une installation propre de la plateforme visée.
+Depuis RStudio ou Positron, ouvrez la racine du dépôt et lancez :
 
-Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) installe le profil de développement dans une bibliothèque temporaire unique, exécute les tests avec celle-ci, puis copie seulement la fermeture runtime dans le ZIP : les packages ne sont pas recompilés une seconde fois. Il construit les archives Linux et Windows sur des runners natifs avec R 4.6.2. Il se lance sur chaque push vers `main` ou manuellement depuis l'onglet **Actions** ; les ZIP sont alors disponibles comme artefacts du workflow. Un tag commençant par `v` déclenche aussi la création ou la mise à jour d'une release GitHub avec les deux archives. Les builds locaux sans bibliothèque fournie continuent à restaurer les packages runtime depuis `renv.lock`.
+```r
+source("scripts/install_dependencies.R")
+source("launcher.R")
+```
 
-## Utiliser l'accueil
+La fenêtre Tcl/Tk démarre un processus serveur séparé et ouvre le navigateur. Elle est facultative ; le serveur peut aussi être lancé directement avec `Rscript --vanilla shiny/run_app.R 8000`. Il écoute uniquement sur `127.0.0.1`. Sous Linux, la fenêtre graphique demande Tcl/Tk et un outil de détection de processus (`lsof` ou `ss`). Sous Windows, la détection utilise `netstat`.
 
-Au démarrage, l'application recherche les bases dans `data/` et vous propose :
+### PostgreSQL distant
 
-- d'ouvrir une base SQLite sans chiffrement ;
-- d'ouvrir un coffre `.sqlite.enc` avec son mot de passe ;
-- de créer une base, avec mot de passe facultatif ;
-- de créer une copie chiffrée d'une ancienne SQLite.
+Le mode distant se configure dans `config/database.yml`. Il ne bénéficie pas du coffre local `.sqlite.enc`. Configurez TLS côté serveur, un compte SQL aux droits minimaux et une authentification avant toute mise en réseau. Installez le profil `postgres`, puis définissez les identifiants `RECUEIL_DB_USER` et `RECUEIL_DB_PASSWORD` dans l’environnement. Ne mettez jamais de secrets dans le fichier de configuration ou dans Git.
 
-La copie chiffrée d'une ancienne base ne supprime pas l'original : celui-ci reste en clair jusqu'à une suppression manuelle, après vérification de la copie.
-
-### Importer ou fusionner
-
-L'accueil accepte CSV, Excel (`.xlsx`) et RDS. Les limites sont 25 Mio, 50 000 lignes, 500 colonnes et 1 million de cellules. À la création depuis un fichier, choisissez le type de chaque colonne.
-
-**Attention au format RDS :** c'est une sérialisation d'objets R. Une case de confirmation est obligatoire ; ne chargez que des fichiers provenant d'une source de confiance. Les fichiers chiffrés `.enc` demandent leur mot de passe.
-
-Pour fusionner dans une base déjà ouverte, choisissez une colonne identifiante unique présente dans les deux sources. Les nouvelles observations sont ajoutées, les cellules vides sont complétées et chaque conflit demande quelle valeur conserver. La structure de la base est préservée : les colonnes inconnues du fichier sont ignorées. Si la base change pendant la boîte d'arbitrage, l'opération est annulée et doit être relancée.
-
-### Consulter et gérer les données
-
-**Base de données** fournit le tableur central en lecture seule : tri, recherche, filtres, pagination et export CSV, Excel ou RDS. Un double-clic sur une ligne ouvre cette observation dans **Questionnaire** pour la modifier. Le questionnaire permet aussi de créer une observation et de choisir son ID.
-
-Une observation supprimée est masquée, pas effacée. L'onglet **Éléments supprimés** liste séparément les colonnes et observations masquées et permet de les restaurer. Si l'ID ou l'entête d'origine est déjà utilisé, renseignez un nouvel ID ou une nouvelle entête avant la restauration.
-
-**Gestion des variables** permet d'ajouter, renommer, masquer/restaurer des champs, gérer les catégories et construire des formules dérivées. Le double-clic sur un en-tête ouvre l'édition de la variable correspondante. Les champs masqués restent stockés ; ils ne sont pas supprimés.
-
-Les dates sont au format `YYYY-MM-DD`. Les formules sont structurées et ne sont pas exécutées comme du code R libre. Les colonnes techniques `id`, `created_at`, `payload` et `is_deleted` ne sont pas éditables ; `payload` et `is_deleted` sont exclus des vues et exports.
-
-### Interface
-
-L'application utilise une mise en page responsive avec des cartes par tâche, une navigation en onglets et des actions principales mises en évidence. Les écrans étroits regroupent les contrôles en une seule colonne sans débordement horizontal. Les actions de masquage demandent confirmation ; elles restent réversibles depuis **Éléments supprimés**.
-
-## Données et protection
-
-Une base créée sans mot de passe est un fichier SQLite ordinaire, lisible par toute personne ayant accès au compte et au fichier. Avec un mot de passe, elle est conservée sous forme de coffre AES-256-GCM ; le mot de passe n'est pas enregistré.
-
-Pour travailler, l'application déchiffre le coffre dans un dossier temporaire privé, puis le rechiffre à la fermeture. Un arrêt brutal peut nécessiter une récupération. Si l'état du verrou ou la copie temporaire est ambigu, l'application refuse l'ouverture pour éviter d'écraser des données ; le journal de sécurité décrit la récupération manuelle.
-
-Le chiffrement actuel bufferise les fichiers et refuse les bases/exports supérieurs à 256 Mio. Les fichiers `data/` et `exports/` sont ignorés par Git. Les exports sans mot de passe et les bases sans mot de passe restent en clair.
-
-Le lanceur local écoute uniquement sur `127.0.0.1`. Le mode PostgreSQL distant reste configurable dans [config/database.yml](config/database.yml), mais une utilisation hébergée demande une authentification, des rôles, TLS, des sauvegardes et une revue de sécurité professionnelle.
-
-## PostgreSQL (option avancée)
-
-Le mode distant se configure dans `config/database.yml`. Il ne bénéficie pas du coffre local `.sqlite.enc` : configurez TLS côté serveur, un compte SQL aux droits minimaux et une authentification avant toute mise en réseau.
+Exemple de configuration :
 
 ```yaml
 database:
@@ -193,57 +154,48 @@ database:
       password_env: RECUEIL_DB_PASSWORD
 ```
 
-Installez le profil `postgres` et définissez `RECUEIL_DB_USER` et `RECUEIL_DB_PASSWORD` dans l'environnement avant le lancement. Ne placez jamais de secrets dans ce fichier ou dans Git.
+### Tests et analyse
 
-## Vérification
-
-Après avoir installé le profil `development`, lancez les tests unitaires et d'intégration :
+Après installation du profil `development` :
 
 ```sh
 Rscript --vanilla -e 'testthat::test_dir("tests/testthat")'
 ```
 
-Les dépendances R verrouillées sont consignées dans `renv.lock`. Pour vérifier les vulnérabilités des paquets R, utilisez OSV-Scanner, qui prend en charge ce format :
+Les versions verrouillées sont dans `renv.lock`. Pour vérifier les vulnérabilités des packages R avec OSV-Scanner :
 
 ```sh
 osv-scanner scan source -r .
 ```
 
-Restaurer les versions verrouillées ou mettre le lockfile à jour :
-
-```r
-install.packages("renv")
-renv::restore()
-renv::snapshot(
-  packages = c("shiny", "DT", "DBI", "RSQLite", "yaml", "writexl", "readxl", "openssl", "testthat", "htmltools"),
-  prompt = FALSE
-)
-```
-
-Trivy reste utile pour les secrets et les mauvaises configurations, mais ne prend pas en charge les dépendances CRAN/R.
-
-Pour analyser toutes les sources R et tous les tests, y compris les fichiers ignorés par Git :
+Trivy reste utile pour les secrets et les mauvaises configurations, mais ne prend pas en charge les dépendances CRAN/R. Pour analyser toutes les sources R et les tests, y compris les fichiers ignorés par Git :
 
 ```sh
 sh scripts/run_semgrep.sh
 ```
 
-Le journal des validations adversariales et les limites connues sont consignés dans [docs/TESTS_AND_DATABASE_SECURITY.md](docs/TESTS_AND_DATABASE_SECURITY.md).
+Le journal des validations adversariales et les limites connues sont décrits dans [docs/TESTS_AND_DATABASE_SECURITY.md](docs/TESTS_AND_DATABASE_SECURITY.md).
 
-## État du projet
+### Données, sécurité et limites connues
 
-Le schéma, la gestion des variables, l'import, la fusion, le questionnaire et la suppression/restauration sont expérimentaux. Ce dépôt n'est pas un produit validé pour un déploiement ou un usage clinique/de recherche en production.
+Avec un mot de passe, une base est conservée dans un coffre AES-256-GCM ; le mot de passe n’est pas stocké. Pour l’ouvrir, l’application la déchiffre dans un dossier temporaire privé et la rechiffre à la fermeture. Un arrêt brutal peut nécessiter une récupération. Si l’état d’un verrou ou d’une copie temporaire est ambigu, l’application refuse l’ouverture afin d’éviter d’écraser des données ; voir le journal de sécurité pour les procédures de récupération.
 
-## Architecture V1
+Le chiffrement actuel charge les fichiers en mémoire et refuse les bases ou exports de plus de 256 Mio. Les fichiers `data/` et `exports/` sont ignorés par Git. Une base ou un export sans mot de passe reste en clair.
+
+Les formules sont structurées et ne sont pas exécutées comme du code R libre. Les colonnes techniques `id`, `created_at`, `payload` et `is_deleted` ne sont pas éditables ; `payload` et `is_deleted` sont exclus des vues et exports. Une observation supprimée est masquée, pas effacée. Les champs masqués restent stockés.
+
+Le mode PostgreSQL et tout hébergement réseau nécessitent une authentification, des rôles, TLS, des sauvegardes et une revue de sécurité professionnelle. Le dépôt reste expérimental et n’est pas validé pour un usage clinique, de recherche en production ou d’autres usages réglementés.
+
+### Architecture
 
 | Couche | Responsabilité | Technologie principale |
 | --- | --- | --- |
-| Lanceur local | Ouvre/arrête le serveur Shiny sur `127.0.0.1` | R, Tcl/Tk, PowerShell/terminal |
-| Interface | Onglets Accueil, Questionnaire, Tableur, Variables et Éléments supprimés | Shiny, HTML/CSS |
+| Lanceur local | Démarre/arrête Shiny sur `127.0.0.1` | R, Tcl/Tk ou terminal |
+| Interface | Accueil, questionnaire, tableur, variables et éléments supprimés | Shiny, HTML/CSS |
 | Schéma | Catalogue stable des colonnes, types, masquage et formules | SQLite, YAML |
-| Données | CRUD des observations, valeurs dérivées et restauration logique | DBI, RSQLite |
+| Données | CRUD, valeurs dérivées et restauration logique | DBI, RSQLite |
 | Import/export | CSV, XLSX, RDS, fusion par clé et arbitrage | readxl, writexl, openssl |
-| Sécurité locale | Verrous, coffre AES-GCM, copie privée temporaire | openssl, RSQLite |
-| Tests | Régression, fonctions, Shiny, UI, coffres, imports et processus | testthat |
+| Sécurité locale | Verrous, coffre, copie temporaire privée | openssl, RSQLite |
+| Tests | Fonctions, Shiny, interface, coffres, imports et processus | testthat |
 
-Les fichiers applicatifs sous `R/database/` gèrent les données, sous `R/shiny/` l'interface, sous `R/launcher/` le processus local, sous `scripts/` l'installation et sous `tests/testthat/` les validations.
+Le code des données se trouve dans `R/database/`, l’interface dans `R/shiny/`, le lanceur dans `R/launcher/`, les scripts dans `scripts/` et les tests dans `tests/testthat/`.
