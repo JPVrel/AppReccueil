@@ -1,0 +1,89 @@
+name: Portable R releases
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }} release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+          - os: windows-latest
+            target: windows
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.6.2"
+
+      - name: Install Linux build libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libuv1-dev \
+            libxml2-dev \
+            zlib1g-dev
+
+      - name: Install test dependencies
+        run: Rscript --vanilla scripts/install_dependencies.R --profile development
+
+      - name: Run test suite
+        run: Rscript --vanilla -e 'testthat::test_dir("tests/testthat")'
+
+      - name: Build portable release
+        run: Rscript --vanilla scripts/build_release.R
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: AppReccueil-${{ matrix.target }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download platform archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: AppReccueil-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-assets/*.zip \
+              --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" release-assets/*.zip \
+              --title "$GITHUB_REF_NAME" --generate-notes --repo "$GITHUB_REPOSITORY"
+          fi

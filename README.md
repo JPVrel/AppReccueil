@@ -128,6 +128,8 @@ Rscript --vanilla shiny/run_app.R 8000
 
 Ouvrez ensuite <http://127.0.0.1:8000>. Le lanceur Tcl/Tk reste optionnel. Cette release embarque les packages R ; certaines bibliothèques natives peuvent encore être fournies par le système d'exploitation, donc testez chaque archive sur une installation propre de la plateforme visée.
 
+Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) exécute les tests et construit les ZIP Linux et Windows sur des runners natifs avec R 4.6.2. Il se lance sur chaque push vers `main` ou manuellement depuis l'onglet **Actions** ; les ZIP sont alors disponibles comme artefacts du workflow. Un tag commençant par `v` déclenche aussi la création ou la mise à jour d'une release GitHub avec les deux archives.
+
 ## Utiliser l'accueil
 
 Au démarrage, l'application recherche les bases dans `data/` et vous propose :
