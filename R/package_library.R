@@ -15,7 +15,7 @@ project_package_library_path <- function(project_dir) {
     "library",
     operating_system,
     paste0("R-", r_family),
-    R.version$platform
+    R.version$arch
   )
 }
 

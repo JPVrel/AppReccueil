@@ -73,6 +73,11 @@ jobs:
           APPRECUEIL_BUILD_LIBRARY: ${{ runner.temp }}/AppReccueil-R-library
         run: Rscript --vanilla scripts/build_release.R
 
+      - name: Launch extracted release and check HTTP response
+        env:
+          R_LIBS_USER: ${{ runner.temp }}/AppReccueil-R-library
+        run: Rscript --vanilla scripts/smoke_release.R dist
+
       - name: Upload release archive
         uses: actions/upload-artifact@v4
         with:

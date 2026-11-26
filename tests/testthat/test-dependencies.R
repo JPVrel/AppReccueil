@@ -15,6 +15,7 @@ testthat::test_that("dependency profiles include their direct packages", {
 testthat::test_that("the release package library is activated before system libraries", {
   project_dir <- tempfile("project-library-")
   library_path <- project_package_library_path(project_dir)
+  testthat::expect_identical(basename(library_path), R.version$arch)
   dir.create(library_path, recursive = TRUE)
   original_libraries <- .libPaths()
   on.exit({

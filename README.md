@@ -118,7 +118,7 @@ Pour construire hors CI, faites le build sur chaque système cible : Linux, Wind
 
 ### CI et publications GitHub
 
-Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu, Windows et macOS avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit les trois ZIP puis les publie comme artefacts conservés 30 jours.
+Le workflow [build-portable-releases.yml](.github/workflows/build-portable-releases.yml) utilise des runners natifs Ubuntu, Windows et macOS avec R 4.6.2. Sur chaque push vers `main` et lors d’un lancement manuel depuis l’onglet **Actions**, il installe les dépendances de développement dans une bibliothèque temporaire, exécute les tests, construit chaque ZIP, l’extrait dans un dossier temporaire, démarre Shiny et vérifie une réponse HTTP 200 avant de publier l’artefact (conservé 30 jours).
 
 Un tag commençant par `v` déclenche aussi la création ou la mise à jour d’une release GitHub avec les trois ZIP. La page des releases est [ici](https://github.com/JPVrel/AppReccueil/releases). Une release taguée est le lien de téléchargement durable ; les artefacts d’un run Actions sont temporaires.
 
