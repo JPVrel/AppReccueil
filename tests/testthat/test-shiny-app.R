@@ -406,6 +406,21 @@ testthat::test_that("conflict decisions cannot be applied after switching databa
   testthat::expect_equal(nrow(read_collection_records(other$connection)), 0L)
 })
 
+testthat::test_that("categorical questionnaire fields without categories render safely", {
+  connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(connection), add = TRUE)
+  initialize_database(connection)
+  add_typed_column(connection, "empty_category", "categorical")
+  refresh_trigger <- shiny::reactiveVal(0L)
+
+  shiny::testServer(function(input, output, session) {
+    record_entry_server(input, output, session, connection, refresh_trigger)
+  }, {
+    form_html <- htmltools::renderTags(output$record_questionnaire_fields)$html
+    testthat::expect_match(form_html, "empty_category")
+  })
+})
+
 testthat::test_that("the questionnaire creates, edits from row double-click, and masks records", {
   connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
   on.exit(DBI::dbDisconnect(connection), add = TRUE)
@@ -456,6 +471,7 @@ testthat::test_that("deleted-item controls restore records and columns under rep
   connection <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
   on.exit(DBI::dbDisconnect(connection), add = TRUE)
   initialize_database(connection)
+  connection_state <- shiny::reactiveVal(connection)
   add_typed_column(connection, "participant_code", "text")
   age_id <- add_typed_column(connection, "age", "integer")
   insert_collection_record(connection, list(participant_code = "P001", age = "34"), "row-hidden")
@@ -465,8 +481,10 @@ testthat::test_that("deleted-item controls restore records and columns under rep
   refresh_trigger <- shiny::reactiveVal(0L)
 
   shiny::testServer(function(input, output, session) {
-    deleted_items_server(input, output, session, connection, refresh_trigger)
+    deleted_items_server(input, output, session, connection_state, refresh_trigger)
   }, {
+    testthat::expect_match(output$deleted_records_table, "row-hidden")
+    testthat::expect_match(output$deleted_columns_table, "age")
     session$setInputs(
       deleted_record_id = "row-hidden",
       deleted_record_new_id = "row-restored",

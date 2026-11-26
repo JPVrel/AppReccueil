@@ -98,6 +98,7 @@ testthat::test_that("the management UI handles types, dictionaries, formulas, an
       new_category_label = "Control",
       add_category = 1
     )
+    testthat::expect_match(output$category_entries, "Control")
     control_id <- DBI::dbGetQuery(
       external_connection,
       "SELECT category_id FROM category_dictionary WHERE code = 'control'"

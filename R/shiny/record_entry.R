@@ -89,9 +89,14 @@ record_entry_server <- function(input, output, session, connection, refresh_trig
 
         if (identical(data_type, "categorical")) {
           categories <- list_category_entries(active, definition$column_id[[1]])
+          category_choices <- if (nrow(categories) == 0L) {
+            character()
+          } else {
+            stats::setNames(categories$code, paste0(categories$label, " (", categories$code, ")"))
+          }
           choices <- c(
             stats::setNames("", ""),
-            stats::setNames(categories$code, paste0(categories$label, " (", categories$code, ")"))
+            category_choices
           )
           return(shiny::selectInput(input_id, field_name, choices = choices))
         }
@@ -304,7 +309,7 @@ deleted_items_server <- function(input, output, session, connection, refresh_tri
   }
 
   output$deleted_columns_table <- shiny::renderTable({
-    if (!is.function(connection)) refresh_trigger()
+    refresh_trigger()
     active <- active_connection()
     if (is.null(active)) {
       return(data.frame(Variable = "Ouvre une base pour consulter les colonnes masquées."))
@@ -315,7 +320,7 @@ deleted_items_server <- function(input, output, session, connection, refresh_tri
   }, striped = TRUE, bordered = TRUE, hover = TRUE, rownames = FALSE)
 
   output$deleted_records_table <- shiny::renderTable({
-    if (!is.function(connection)) refresh_trigger()
+    refresh_trigger()
     active <- active_connection()
     if (is.null(active)) {
       return(data.frame(ID = "Ouvre une base pour consulter les observations masquées."))

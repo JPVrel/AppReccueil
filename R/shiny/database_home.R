@@ -402,6 +402,7 @@ database_home_server <- function(
         create_imported_database(vault$connection, imported, imported_types)
       }
       activate_vault(vault)
+      shiny::removeModal()
       shiny::updateTextInput(session, "new_database_password", value = "")
       shiny::updateTextInput(session, "new_database_password_confirm", value = "")
       shiny::updateTextInput(session, "import_file_password", value = "")

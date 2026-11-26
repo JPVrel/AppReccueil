@@ -403,6 +403,7 @@ database_management_server <- function(input, output, session, connection, refre
     column_table_data(archived, current)
   }, striped = TRUE, bordered = TRUE, hover = TRUE, rownames = FALSE)
   output$category_entries <- shiny::renderTable({
+    refresh_trigger()
     column_id <- input$dictionary_column_id
     current_definitions <- definitions()
     active_categories <- current_definitions[
